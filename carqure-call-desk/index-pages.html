@@ -117,6 +117,10 @@ tr.team-row td { background: var(--accent-soft); font-weight: 700; color: var(--
 tr.total td { font-weight: 700; border-top: 1px solid var(--line); }
 tbody tr:hover td { background: var(--line-soft); }
 .agent-name { font-weight: 600; }
+#board tr.grp th { text-align: center; font-size: 10.5px; letter-spacing: 0.08em; padding: 6px 4px 2px; border-bottom: 0; }
+#board tr.grp th.g-in { color: var(--s-handled); border-bottom: 2px solid var(--s-handled); }
+#board tr.grp th.g-out { color: var(--s-missed); border-bottom: 2px solid var(--s-missed); }
+#board thead tr:nth-child(2) th { top: 26px; }
 th .th-sub { display: block; font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--accent); margin-top: 2px; }
 #board td:last-child { white-space: normal; min-width: 190px; }
 #board td:last-child .pill { margin: 1px 0; }
@@ -576,7 +580,8 @@ function rowsFor(date, team) {
 function agg(rows) {
   const s = k => rows.reduce((a, r) => a + r[k], 0);
   const handled = s("handled"), talk = s("talk"), outTot = s("outTot");
-  return { total: s("total"), handled, inMiss: s("inMiss"), talk, aht: handled ? talk / handled : 0,
+  return { total: s("total"), handled, inMiss: s("inMiss"), inTot: s("inTot"), inAns: s("inAns"),
+    outTot, outCon: s("outCon"), outNot: s("outNot"), talk, aht: handled ? talk / handled : 0,
     connect: outTot ? s("outCon") / outTot : 0, brk: s("brk"), lunch: s("lunch"), meeting: s("meeting"),
     login: s("login"), loggedIn: rows.filter(r => r.login > 0).length, n: rows.length };
 }
@@ -593,11 +598,11 @@ function renderKpis(rows, miss) {
   const tiles = [
     ["Total calls", a.total.toLocaleString("en-IN"), `${rows.reduce((x, r) => x + r.inTot, 0)} in · ${rows.reduce((x, r) => x + r.outTot, 0)} out`],
     ["Calls handled", a.handled.toLocaleString("en-IN"), `${pct(a.total ? a.handled / a.total : 0)} of all calls`],
-    ["Calls missed", a.inMiss, "inbound, rang an agent", a.inMiss > 0],
+    ["Inbound missed", a.inMiss, `of ${a.inTot} inbound · ${a.inAns} answered (${pct(a.inTot ? a.inAns / a.inTot : 0)})`, a.inMiss > 0],
+    ["Outbound not picked", a.outNot, `of ${a.outTot} dialled · ${a.outCon} connected`],
     ...(state.team === "All" ? [["Queue unanswered", queue, "no agent picked up", queue > 0]] : []),
     ["Not reached yet", open, "missed, no later connect", open > 0],
     ["Team AHT", ms(a.aht), `${rows.filter(r => r.handled && r.aht > T.aht).length} agent(s) above 2:00`, a.aht > T.aht],
-    ["Outbound connect", pct(a.connect), "connected ÷ dialled"],
     ["Login target met", `${metLogin}/${a.loggedIn}`, `${a.n - a.loggedIn} not logged in`, metLogin < a.loggedIn],
     ["Break + lunch over 1h 15m", `${rows.filter(r => r.login > 0 && r.brk + r.lunch > T.bl).length}/${a.loggedIn}`, `team total ${hm(a.brk + a.lunch)} · meeting ${hm(a.meeting)}`, rows.some(r => r.login > 0 && r.brk + r.lunch > T.bl)],
   ];
@@ -637,8 +642,10 @@ function renderAttn(rows, miss) {
 
 /* ---------- Scoreboard ---------- */
 const COLS = [
-  ["agent", "Agent", "l"], ["first", "First login", ""], ["login", "Login", ""], ["total", "Calls", ""],
-  ["handled", "Handled", ""], ["inMiss", "Missed", ""], ["connect", "Connect %", ""], ["aht", "AHT", ""],
+  ["agent", "Agent", "l"], ["first", "First login", ""], ["login", "Login", ""],
+  ["inTot", "Total", "g-in"], ["inAns", "Answered", "g-in"], ["inMiss", "Missed", "g-in"],
+  ["outTot", "Dialled", "g-out"], ["outCon", "Connected", "g-out"], ["outNot", "Not picked", "g-out"], ["connect", "Connect %", "g-out"],
+  ["handled", "Handled", ""], ["aht", "AHT", ""],
   ["brk", "Break", ""], ["lunch", "Lunch", ""], ["bl", "Break + lunch", ""], ["meeting", "Meeting", ""], ["status", "Status", "l"],
 ];
 const ragMin = (v, t, a) => v >= t ? "good" : v >= a ? "warn" : "bad";
@@ -664,9 +671,12 @@ function boardRow(r, ctx) {
     <td><span class="agent-name">${esc(r.agent)}</span><span class="agent-id">${esc(r.hue)}</span></td>
     <td class="num">${r.first || "–"}</td>
     <td class="num${off ? " c-bad" : " c-" + lr}"><span class="meter"><i><span class="${off ? "" : lr === "good" ? "" : lr}" style="width:${lp}%"></span></i>${hms(r.login)}</span></td>
-    <td class="num">${r.total}</td><td class="num">${r.handled}</td>
+    <td class="num g-in">${r.inTot}</td><td class="num g-in">${r.inAns}</td>
     <td class="num${heat}">${r.inMiss}</td>
+    <td class="num g-out">${r.outTot}</td><td class="num g-out">${r.outCon}</td>
+    <td class="num g-out">${r.outNot}</td>
     <td class="num${conn}">${r.outTot ? pct(r.connect) : "–"}</td>
+    <td class="num"><b>${r.handled}</b></td>
     <td class="num${r.handled ? " c-" + ragMax(r.aht, T.aht, T.ahtA) : ""}">${r.handled ? ms(r.aht) : "–"}</td>
     <td class="num">${hms(r.brk)}</td>
     <td class="num">${hms(r.lunch)}</td>
@@ -676,8 +686,10 @@ function boardRow(r, ctx) {
 }
 function totalRow(label, rows) {
   const a = agg(rows);
-  return `<tr class="total"><td>${label}</td><td></td><td class="num">${hms(a.login)}</td><td class="num">${a.total}</td>
-    <td class="num">${a.handled}</td><td class="num">${a.inMiss}</td><td class="num">${pct(a.connect)}</td>
+  return `<tr class="total"><td>${label}</td><td></td><td class="num">${hms(a.login)}</td>
+    <td class="num">${a.inTot}</td><td class="num">${a.inAns}</td><td class="num">${a.inMiss}</td>
+    <td class="num">${a.outTot}</td><td class="num">${a.outCon}</td><td class="num">${a.outNot}</td><td class="num">${pct(a.connect)}</td>
+    <td class="num">${a.handled}</td>
     <td class="num">${ms(a.aht)}</td><td class="num">${hms(a.brk)}</td><td class="num">${hms(a.lunch)}</td>
     <td class="num">${hms(a.brk + a.lunch)}</td><td class="num">${hms(a.meeting)}</td>
     <td class="l">Login met ${rows.filter(r => r.login >= T.login).length}/${a.loggedIn} · AHT met ${rows.filter(r => r.handled && r.aht <= T.aht).length}/${rows.filter(r => r.handled).length} · Break + lunch met ${rows.filter(r => r.login > 0 && r.bl <= T.bl).length}/${a.loggedIn}</td></tr>`;
@@ -691,7 +703,12 @@ function updatedAt(date) {
 function renderBoard(rows) {
   const s = state.sort;
   const asOf = updatedAt(state.date);
-  const head = `<thead><tr>${COLS.map(([k, l, c]) => {
+  const grp = `<tr class="grp">${COLS.reduce((acc, [, , c], i) => {
+    const g = c.startsWith("g-") ? c : "";
+    if (acc.length && acc[acc.length - 1].g === g && g) acc[acc.length - 1].n++; else acc.push({ g, n: 1 });
+    return acc;
+  }, []).map(x => x.g ? `<th colspan="${x.n}" class="${x.g}">${x.g === "g-in" ? "Inbound" : "Outbound"}</th>` : `<th colspan="${x.n}"></th>`).join("")}</tr>`;
+  const head = `<thead>${grp}<tr>${COLS.map(([k, l, c]) => {
     const dir = s && s.k === k ? (s.d > 0 ? "▲" : "▼") : null;
     const sub = k === "login" && asOf ? `<span class="th-sub">as of ${asOf}</span>` : "";
     return `<th class="${c}">${k === "status" ? l : `<button type="button" data-k="${k}" ${dir ? `data-dir="${dir}"` : ""}>${l}</button>`}${sub}</th>`;
@@ -964,8 +981,8 @@ function renderOverall() {
     ["Calls handled", a.handled.toLocaleString("en-IN"), `${pct(a.total ? a.handled / a.total : 0)} of ${a.total.toLocaleString("en-IN")} calls`],
     ["Avg handled / day", pd.length ? Math.round(a.handled / pd.length).toLocaleString("en-IN") : 0, "team total per day"],
     ["Team AHT", ms(a.aht), a.aht > T.aht ? "above 2:00 target" : "within 2:00 target", a.aht > T.aht],
-    ["Outbound connect", pct(a.connect), "connected ÷ dialled"],
-    ["Missed inbound", a.inMiss, `${state.team === "All" ? `+ ${queue} unanswered in queue` : "rang an agent"}`, a.inMiss > 0],
+    ["Inbound missed", a.inMiss, `of ${a.inTot} inbound${state.team === "All" ? ` · + ${queue} unanswered in queue` : ""}`, a.inMiss > 0],
+    ["Outbound not picked", a.outNot.toLocaleString("en-IN"), `of ${a.outTot.toLocaleString("en-IN")} dialled · connect ${pct(a.connect)}`],
     ["Callbacks pending", openNums, "customers missed, never reached that day", openNums > 0],
     ["Attendance", pct(attendance), `${presentWork} of ${expected} agent-days`, attendance < 0.9],
     ["Sunday logins", sundayPeople.size, sundayRows.length ? `${sundayRows.length} agent-day${sundayRows.length === 1 ? "" : "s"}` : "no Sunday work"],
@@ -1012,12 +1029,14 @@ function renderOverall() {
 
   // Scorecard
   const comp = (v) => `<span class="cbar"><i style="width:${Math.round(v)}%"></i></span>`;
-  $o("oScore").innerHTML = `<thead><tr><th>#</th><th class="l">Agent</th><th class="l">Team</th><th>Days</th><th>Handled</th><th>Per hour</th><th>Connect %</th><th>AHT</th><th>Missed / day</th><th>Login met</th><th>B + L met</th><th class="l">Score</th><th class="l">Band</th></tr></thead><tbody>${list.map((s, i) => `
+  $o("oScore").innerHTML = `<thead><tr><th>#</th><th class="l">Agent</th><th class="l">Team</th><th>Days</th><th>Handled</th><th>Per hour</th><th>In missed</th><th>Not picked</th><th>Connect %</th><th>AHT</th><th>Missed / day</th><th>Login met</th><th>B + L met</th><th class="l">Score</th><th class="l">Band</th></tr></thead><tbody>${list.map((s, i) => `
     <tr><td class="num">${s.score == null ? "–" : i + 1}</td>
     <td class="l"><span class="agent-name">${esc(s.agent)}</span></td><td class="l">${esc(s.team)}</td>
     <td class="num">${s.nw}/${workDays.length}${s.sundays.length ? ` <span class="pill neutral">+${s.sundays.length} Sun</span>` : ""}</td>
     <td class="num">${s.handled}</td>
     <td class="num c-${s.n ? (s.rate >= s.bench.rate ? "good" : s.rate >= s.bench.rate * 0.8 ? "warn" : "bad") : "bad"}">${s.n ? s.rate.toFixed(1) : "–"}</td>
+    <td class="num">${s.inMiss}<small class="muted"> /${s.inTot}</small></td>
+    <td class="num">${s.outTot - s.outCon}<small class="muted"> /${s.outTot}</small></td>
     <td class="num ${s.outTot ? "c-" + (s.connect >= s.bench.connect ? "good" : s.connect >= s.bench.connect - 0.05 ? "warn" : "bad") : ""}">${s.outTot ? pct(s.connect) : "–"}</td>
     <td class="num ${s.handled ? "c-" + ragMax(s.aht, T.aht, T.ahtA) : ""}">${s.handled ? ms(s.aht) : "–"}</td>
     <td class="num c-${ragMax(s.missPerDay, T.miss, T.missA)}">${s.missPerDay.toFixed(1)}</td>
@@ -1173,27 +1192,27 @@ $("dlBtn").addEventListener("click", async () => {
     const D = 86400, rowsAll = DATA.daily.map(derive).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ORDER.indexOf(a.agent) - ORDER.indexOf(b.agent));
     const st = (cond, off) => off ? "-" : cond ? "Met" : "Missed";
     const head = ["Date", "Team", "Agent", "Hue ID", "First Login", "Login (as of update)", "Ready", "Not Ready", "Break", "Lunch", "Break + Lunch", "Meeting",
-      "Inbound", "Inbound Answered", "Inbound Missed", "Outbound", "Outbound Connected", "Total Calls", "Calls Handled", "Talk Time", "AHT", "Outbound Connect %",
+      "Inbound", "Inbound Answered", "Inbound Missed", "Outbound", "Outbound Connected", "Outbound Not Picked", "Total Calls", "Calls Handled", "Talk Time", "AHT", "Outbound Connect %",
       "Login Status", "AHT Status", "Break + Lunch Status", "Remarks", "Updated At"];
     const body = rowsAll.map(r => [new Date(r.date + "T00:00:00Z"), r.team, r.agent, r.hue, r.first, r.login / D, r.ready / D, r.notReady / D, r.brk / D, r.lunch / D, r.bl / D, r.meeting / D,
-      r.inTot, r.inAns, r.inMiss, r.outTot, r.outCon, r.total, r.handled, r.talk / D, r.aht / D, r.connect,
+      r.inTot, r.inAns, r.inMiss, r.outTot, r.outCon, r.outNot, r.total, r.handled, r.talk / D, r.aht / D, r.connect,
       st(r.login >= T.login, r.login === 0), r.handled ? st(r.aht <= T.aht) : "-", st(r.bl <= T.bl, r.login === 0), r.remarks || "", DATA.meta[r.date] && DATA.meta[r.date].uploadedAt ? new Date(DATA.meta[r.date].uploadedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }) : ""]);
     const ws1 = XLSX.utils.aoa_to_sheet([head, ...body], { cellDates: true });
-    const fmtCols = { 0: "dd-mmm-yyyy", 5: "[h]:mm:ss", 6: "[h]:mm:ss", 7: "[h]:mm:ss", 8: "[h]:mm:ss", 9: "[h]:mm:ss", 10: "[h]:mm:ss", 11: "[h]:mm:ss", 19: "[h]:mm:ss", 20: "[m]:ss", 21: "0.0%" };
+    const fmtCols = { 0: "dd-mmm-yyyy", 5: "[h]:mm:ss", 6: "[h]:mm:ss", 7: "[h]:mm:ss", 8: "[h]:mm:ss", 9: "[h]:mm:ss", 10: "[h]:mm:ss", 11: "[h]:mm:ss", 20: "[h]:mm:ss", 21: "[m]:ss", 22: "0.0%" };
     body.forEach((_, i) => Object.entries(fmtCols).forEach(([c, z]) => { const ref = XLSX.utils.encode_cell({ r: i + 1, c: +c }); if (ws1[ref]) ws1[ref].z = z; }));
-    ws1["!cols"] = head.map((h, i) => ({ wch: i === 25 ? 34 : i === 26 ? 22 : Math.max(10, h.length + 2) }));
+    ws1["!cols"] = head.map((h, i) => ({ wch: i === 26 ? 34 : i === 27 ? 22 : Math.max(10, h.length + 2) }));
     ws1["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: body.length, c: head.length - 1 } }) };
 
-    const tHead = ["Date", "Team", "Agents Logged In", "Total Calls", "Calls Handled", "Calls Missed", "Queue Unanswered", "Outbound Connect %", "Team AHT", "Total Login", "Total Break + Lunch", "Total Meeting", "Not Reached (missed)"];
+    const tHead = ["Date", "Team", "Agents Logged In", "Total Calls", "Calls Handled", "Inbound", "Inbound Missed", "Queue Unanswered", "Outbound Dialled", "Outbound Not Picked", "Outbound Connect %", "Team AHT", "Total Login", "Total Break + Lunch", "Total Meeting", "Not Reached (missed)"];
     const tBody = [];
     dates.forEach(d => ["Customer Champion", "Feedback", "All"].forEach(team => {
       const a = agg(rowsFor(d, team)), m = missedFor(d, team);
-      tBody.push([new Date(d + "T00:00:00Z"), team === "All" ? "All teams" : team, a.loggedIn, a.total, a.handled, a.inMiss,
-        team === "All" ? m.filter(x => x.type === "Unanswered in queue").length : "", a.connect, a.aht / D, a.login / D, (a.brk + a.lunch) / D, a.meeting / D,
+      tBody.push([new Date(d + "T00:00:00Z"), team === "All" ? "All teams" : team, a.loggedIn, a.total, a.handled, a.inTot, a.inMiss,
+        team === "All" ? m.filter(x => x.type === "Unanswered in queue").length : "", a.outTot, a.outNot, a.connect, a.aht / D, a.login / D, (a.brk + a.lunch) / D, a.meeting / D,
         team === "All" ? m.filter(x => !x.reached).length : ""]);
     }));
     const ws2 = XLSX.utils.aoa_to_sheet([tHead, ...tBody], { cellDates: true });
-    const f2 = { 0: "dd-mmm-yyyy", 7: "0.0%", 8: "[m]:ss", 9: "[h]:mm:ss", 10: "[h]:mm:ss", 11: "[h]:mm:ss" };
+    const f2 = { 0: "dd-mmm-yyyy", 10: "0.0%", 11: "[m]:ss", 12: "[h]:mm:ss", 13: "[h]:mm:ss", 14: "[h]:mm:ss" };
     tBody.forEach((_, i) => Object.entries(f2).forEach(([c, z]) => { const ref = XLSX.utils.encode_cell({ r: i + 1, c: +c }); if (ws2[ref]) ws2[ref].z = z; }));
     ws2["!cols"] = tHead.map(h => ({ wch: Math.max(11, h.length + 2) }));
 
