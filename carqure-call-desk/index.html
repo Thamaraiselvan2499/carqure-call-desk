@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html{color-scheme:light dark}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+<title>CarQure Call Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: control bar → KPI strip → attention list + agent scoreboard → chart grid → missed-call worklist */
+:root {
+  --bg: #f3f5f8;
+  --panel: #ffffff;
+  --ink: #111a2b;
+  --ink-2: #4b5567;
+  --ink-3: #7a8396;
+  --line: #dde2ea;
+  --line-soft: #eceff4;
+  --accent: #1b4fa0;
+  --accent-soft: #e5edf9;
+  --s-handled: #2a78d6;
+  --s-missed: #eb6834;
+  --s-queue: #4a3aa7;
+  --s-aht: #1baf7a;
+  --s-break: #eda100;
+  --s-lunch: #4a3aa7;
+  --s-meeting: #e87ba4;
+  --s-notready: #a9b0bd;
+  --target: #4b5567;
+  --good: #1d7a3e;
+  --good-bg: #e3f4e8;
+  --warn: #8a5a00;
+  --warn-bg: #fdf0d2;
+  --bad: #b3261e;
+  --bad-bg: #fbe3e1;
+  --font-ui: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141c; --panel: #171e29; --ink: #eef1f6; --ink-2: #b5bdcb; --ink-3: #8a93a3;
+    --line: #2a3342; --line-soft: #212a37; --accent: #8db4f2; --accent-soft: #1d2a40;
+    --s-handled: #3987e5; --s-missed: #d95926; --s-queue: #9085e9; --s-aht: #199e70; --s-break: #c98500;
+    --s-lunch: #9085e9; --s-meeting: #d55181; --s-notready: #5b6576; --target: #c3cad6;
+    --good: #7ad19a; --good-bg: #173322; --warn: #f0c35a; --warn-bg: #3a2e10; --bad: #f2948d; --bad-bg: #3d1a18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141c; --panel: #171e29; --ink: #eef1f6; --ink-2: #b5bdcb; --ink-3: #8a93a3;
+  --line: #2a3342; --line-soft: #212a37; --accent: #8db4f2; --accent-soft: #1d2a40;
+  --s-handled: #3987e5; --s-missed: #d95926; --s-queue: #9085e9; --s-aht: #199e70; --s-break: #c98500;
+  --s-lunch: #9085e9; --s-meeting: #d55181; --s-notready: #5b6576; --target: #c3cad6;
+  --good: #7ad19a; --good-bg: #173322; --warn: #f0c35a; --warn-bg: #3a2e10; --bad: #f2948d; --bad-bg: #3d1a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 48px; display: grid; gap: 18px; }
+@media (max-width: 520px) { .wrap { padding-inline: 16px; } }
+
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.brand h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+.brand p { margin: 2px 0 0; color: var(--ink-3); font-size: 12.5px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ctl-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); font-weight: 600; }
+select, input[type="search"] {
+  font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 10px; min-height: 36px;
+}
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button {
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2); background: transparent; border: 0;
+  border-radius: 6px; padding: 6px 11px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+button:focus-visible, select:focus-visible, input:focus-visible, th button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 4px; min-width: 0; }
+.kpi .lab { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); font-weight: 600; }
+.kpi .val { font-family: var(--font-num); font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi .sub { font-size: 12px; color: var(--ink-2); }
+.kpi.alert { border-color: var(--bad); box-shadow: inset 3px 0 0 var(--bad); }
+.kpi.alert .val { color: var(--bad); }
+
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+.panel h2 { margin: 0 0 10px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.panel h2 small { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+
+.attn { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.attn li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 9px 10px; border-radius: 8px; background: var(--line-soft); font-size: 13px; }
+.attn .ic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12px; }
+.attn .bad .ic { background: var(--bad-bg); color: var(--bad); }
+.attn .warn .ic { background: var(--warn-bg); color: var(--warn); }
+.attn .good .ic { background: var(--good-bg); color: var(--good); }
+.attn b { font-weight: 700; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+th button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; text-transform: inherit; letter-spacing: inherit; }
+th button[data-dir]::after { content: attr(data-dir); margin-left: 3px; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+td { font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-num); font-size: 12.5px; }
+tr.team-row td { background: var(--accent-soft); font-weight: 700; color: var(--ink); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; }
+tr.total td { font-weight: 700; border-top: 1px solid var(--line); }
+tbody tr:hover td { background: var(--line-soft); }
+.agent-name { font-weight: 600; }
+th .th-sub { display: block; font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--accent); margin-top: 2px; }
+#board td:last-child { white-space: normal; min-width: 190px; }
+#board td:last-child .pill { margin: 1px 0; }
+.agent-id { color: var(--ink-3); font-size: 11px; margin-left: 4px; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: 0.02em; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.neutral { background: var(--line-soft); color: var(--ink-2); }
+.cell-bad { color: var(--bad); font-weight: 700; }
+td.c-good { background: var(--good-bg); color: var(--good); font-weight: 600; }
+td.c-bad { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+td.c-warn { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+td.h1 { background: color-mix(in srgb, var(--bad) 10%, var(--panel)); }
+td.h2 { background: color-mix(in srgb, var(--bad) 22%, var(--panel)); }
+td.h3 { background: color-mix(in srgb, var(--bad) 38%, var(--panel)); color: var(--ink); font-weight: 700; }
+tbody tr:hover td.c-good, tbody tr:hover td.c-bad, tbody tr:hover td.c-warn { filter: brightness(0.97); }
+.cf-key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); margin: -4px 0 10px; }
+.cf-key span { display: inline-flex; align-items: center; gap: 6px; }
+.cf-key i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid var(--line); }
+.meter { display: inline-grid; grid-template-columns: 54px auto; gap: 6px; align-items: center; }
+.meter i { display: block; height: 6px; border-radius: 3px; background: var(--line); position: relative; overflow: hidden; }
+.meter i span { position: absolute; inset: 0 auto 0 0; background: var(--good); border-radius: 3px; }
+.meter i span.bad { background: var(--bad); }
+.meter i span.warn { background: var(--s-break); }
+
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 860px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+.chart-box { position: relative; height: 270px; }
+.chart-note { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--ink-2); margin: -2px 0 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.legend i.line { height: 0; border-top: 2px dashed var(--target); border-radius: 0; width: 16px; }
+
+.missed-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.missed-tools input { flex: 1 1 200px; min-width: 0; }
+.missed-scroll { max-height: 420px; overflow: auto; }
+footer { color: var(--ink-3); font-size: 12px; display: grid; gap: 4px; }
+.empty { color: var(--ink-3); padding: 18px 4px; text-align: center; }
+.upload { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 16px; align-items: stretch; }
+@media (max-width: 860px) { .upload { grid-template-columns: minmax(0, 1fr); } }
+.drop {
+  border: 2px dashed var(--line); border-radius: var(--radius); background: var(--bg); display: grid; place-items: center;
+  text-align: center; padding: 22px 16px; gap: 8px; cursor: pointer; min-height: 140px; transition: border-color .15s, background .15s;
+}
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop strong { font-size: 15px; }
+.drop p { margin: 0; color: var(--ink-3); font-size: 12.5px; max-width: 46ch; }
+.drop .pick { font: inherit; font-weight: 700; color: var(--accent); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.slots li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center; font-size: 13px; padding: 6px 8px; border-radius: 7px; background: var(--line-soft); }
+.slots li .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 11px; font-weight: 800; }
+.slots li.ok .dot { background: var(--good); border-color: var(--good); color: var(--panel); }
+.slots li .fn { color: var(--ink-3); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.up-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.btn { font: inherit; font-weight: 700; font-size: 13px; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); min-height: 36px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.msg { font-size: 13px; padding: 8px 10px; border-radius: 8px; margin-top: 10px; }
+.msg.good { background: var(--good-bg); color: var(--good); }
+.msg.bad { background: var(--bad-bg); color: var(--bad); }
+.msg.warn { background: var(--warn-bg); color: var(--warn); }
+.empty-state { text-align: center; padding: 40px 16px; color: var(--ink-2); }
+.empty-state strong { display: block; font-size: 16px; color: var(--ink); margin-bottom: 4px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>CarQure Call Desk</h1>
+      <p id="subtitle">Daily agent performance</p>
+    </div>
+    <div class="controls">
+      <label class="ctl-label" for="dateSel">Day</label>
+      <select id="dateSel"></select>
+      <button type="button" class="btn" id="dlBtn" hidden>Download Excel</button>
+      <div class="seg" role="group" aria-label="Team" id="teamSeg">
+        <button type="button" data-team="All" aria-pressed="true">All teams</button>
+        <button type="button" data-team="Customer Champion" aria-pressed="false">Customer Champion</button>
+        <button type="button" data-team="Feedback" aria-pressed="false">Feedback</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel" id="uploadPanel" aria-labelledby="upTitle">
+    <h2 id="upTitle">Daily upload <small id="upHint">Drop the six call-platform exports here. The report builds itself and is saved for everyone with this link.</small></h2>
+    <div class="upload">
+      <div>
+        <label class="drop" id="drop" for="fileIn">
+          <strong>Drop today's 6 CSV files here</strong>
+          <p>Production, break, login, call detail (CDR), missed calls and queue missed exports. Keep the file names the call platform gives them; the date is read from them.</p>
+          <span class="pick">or choose files</span>
+        </label>
+        <input type="file" id="fileIn" accept=".csv,text/csv" multiple hidden>
+      </div>
+      <div>
+        <ul class="slots" id="slots"></ul>
+        <div class="up-actions">
+          <button type="button" class="btn primary" id="buildBtn" disabled>Build report</button>
+          <button type="button" class="btn" id="clearBtn" hidden>Clear</button>
+        </div>
+        <div id="upMsg" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel empty-state" id="emptyState">
+    <strong id="emptyTitle">Loading reports…</strong>
+    <span id="emptyText">Saved days appear here once they load.</span>
+  </section>
+
+  <div id="dash" hidden style="display:grid; gap:18px">
+  <section class="kpis" id="kpis" aria-label="Headline numbers"></section>
+
+  <section class="row2">
+    <div class="panel">
+      <h2>Needs attention <small id="attnCount"></small></h2>
+      <ul class="attn" id="attn"></ul>
+    </div>
+    <div class="panel">
+      <h2>Agent scoreboard <small>Targets: login ≥ 7h 30m · AHT ≤ 2:00 · break + lunch ≤ 1h 15m</small></h2>
+      <div class="cf-key">
+        <span><i style="background:var(--good-bg)"></i><b>Green</b> target met</span>
+        <span><i style="background:var(--warn-bg)"></i><b>Amber</b> close: login 7h–7h30m · AHT 2:00–2:30 · break + lunch 1h15m–1h30m · missed 6–10 · connect % up to 5 pts below team average</span>
+        <span><i style="background:var(--bad-bg)"></i><b>Red</b> beyond amber</span>
+      </div>
+      <div class="tbl-wrap"><table id="board"></table></div>
+    </div>
+  </section>
+
+  <section class="charts">
+    <div class="panel">
+      <h2>Calls handled vs missed</h2>
+      <div class="legend"><span><i style="background:var(--s-handled)"></i>Handled</span><span><i style="background:var(--s-missed)"></i>Missed (inbound)</span></div>
+      <div class="chart-box"><canvas id="cCalls" aria-label="Calls handled and missed by agent"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Login hours vs target</h2>
+      <div class="legend"><span><i style="background:var(--good)"></i>7h 30m or more</span><span><i style="background:var(--s-break)"></i>7h–7h 30m</span><span><i style="background:var(--bad)"></i>Under 7h</span><span><i class="line"></i>7h 30m target</span></div>
+      <div class="chart-box"><canvas id="cLogin" aria-label="Login hours by agent"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Average handle time</h2>
+      <div class="legend"><span><i style="background:var(--good)"></i>2:00 or less</span><span><i style="background:var(--s-break)"></i>2:00–2:30</span><span><i style="background:var(--bad)"></i>Over 2:30</span><span><i class="line"></i>2:00 target</span></div>
+      <div class="chart-box"><canvas id="cAht" aria-label="Average handle time by agent"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Break + lunch</h2>
+      <div class="legend"><span><i style="background:var(--s-break)"></i>Break (min)</span><span><i style="background:var(--s-lunch)"></i>Lunch (min)</span><span><i class="line"></i>75 min combined target</span></div>
+      <div class="chart-box"><canvas id="cBreak" aria-label="Break and lunch minutes by agent"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Where the logged-in time went</h2>
+      <div class="legend"><span><i style="background:var(--s-handled)"></i>Ready</span><span><i style="background:var(--s-notready)"></i>Not ready</span><span><i style="background:var(--s-break)"></i>Break</span><span><i style="background:var(--s-lunch)"></i>Lunch</span><span><i style="background:var(--s-meeting)"></i>Meeting</span></div>
+      <div class="chart-box"><canvas id="cTime" aria-label="Time split per agent"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Missed calls by hour</h2>
+      <div class="legend"><span><i style="background:var(--s-missed)"></i>Missed by agent</span><span><i style="background:var(--s-queue)"></i>Unanswered in queue</span></div>
+      <div class="chart-box"><canvas id="cHour" aria-label="Missed calls by hour of day"></canvas></div>
+    </div>
+    <div class="panel" style="grid-column: 1 / -1">
+      <h2>Daily trend <small id="trendNote"></small></h2>
+      <div class="legend"><span><i style="background:var(--s-handled)"></i>Calls handled</span><span><i style="background:var(--s-missed)"></i>Missed (agent)</span><span><i style="background:var(--s-queue)"></i>Queue unanswered</span><span><i style="background:var(--s-aht)"></i>Outbound connect %</span></div>
+      <div class="charts" style="gap:14px">
+        <div class="chart-box"><canvas id="cTrend" aria-label="Daily calls trend"></canvas></div>
+        <div class="chart-box"><canvas id="cTrend2" aria-label="Daily outbound connect percent"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Missed calls worklist <small id="missedCount"></small></h2>
+    <div class="missed-tools">
+      <div class="seg" role="group" aria-label="Missed call filter" id="missSeg">
+        <button type="button" data-f="open" aria-pressed="true">Not reached</button>
+        <button type="button" data-f="queue" aria-pressed="false">Queue unanswered</button>
+        <button type="button" data-f="all" aria-pressed="false">All missed</button>
+      </div>
+      <input type="search" id="missSearch" placeholder="Search number or agent" aria-label="Search missed calls">
+    </div>
+    <div class="missed-scroll tbl-wrap"><table id="missTbl"></table></div>
+  </section>
+
+  </div>
+
+  <footer>
+    <div>Sources: production, break, login, call detail, missed calls and queue missed exports from the call platform.</div>
+    <div>Calls handled = inbound answered + outbound connected. AHT = total talk time ÷ calls handled. Not reached = no answered call with that number later the same day. Targets: login ≥ 7h 30m, AHT ≤ 2:00, break + lunch ≤ 1h 15m. <span id="built"></span></div>
+  </footer>
+</div>
+
+<script>
+/* Browser-side port of ingest.py: turns the six call-platform CSV exports into one day's records. */
+const INGEST = (() => {
+  const AGENTS = {
+    Hue1001: ["Krishnaveni", "Customer Champion"], Hue1002: ["Abdul", "Customer Champion"],
+    Hue1003: ["Rakesh", "Customer Champion"], Hue1004: ["Rohit", "Customer Champion"],
+    Hue1007: ["Mani", "Customer Champion"], Hue1008: ["Madhi", "Customer Champion"],
+    Hue1010: ["Suganya", "Customer Champion"], Hue1011: ["Khizer", "Customer Champion"],
+    Hue1012: ["Sam", "Customer Champion"], Hue1005: ["Catharine", "Feedback"], Hue1009: ["Nasreen", "Feedback"],
+  };
+  const RENAME = { Lokesh: "Sam" };
+  const EXT = { 3941001: "Hue1001", 3941002: "Hue1002", 3941003: "Hue1003", 3941004: "Hue1004", 3941005: "Hue1005",
+    3941007: "Hue1007", 3941008: "Hue1008", 3941009: "Hue1009", 3941011: "Hue1010", 3941012: "Hue1011", 3941013: "Hue1012" };
+  const nameTeam = hid => AGENTS[hid] || [`${hid} (unmapped)`, "Unmapped"];
+
+  function parseCSV(text) {
+    text = text.replace(/^﻿/, "");
+    const rows = []; let row = [], f = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c;
+      } else if (c === '"') q = true;
+      else if (c === ",") { row.push(f); f = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(f); rows.push(row); row = []; f = "";
+      } else f += c;
+    }
+    if (f !== "" || row.length) { row.push(f); rows.push(row); }
+    return rows.filter(r => r.some(x => x.trim() !== ""));
+  }
+  const objects = rows => { const h = rows[0].map(s => s.trim()); return rows.slice(1).map(r => Object.fromEntries(h.map((k, i) => [k, (r[i] ?? "").trim()]))); };
+
+  const TYPES = [
+    { key: "production", label: "Production export", required: true, test: h => h.includes("Ready Time") && h.includes("Inbound Talk Time") },
+    { key: "break", label: "Break report", test: h => h.includes("Break Time") && h.includes("Lunch Time") && !h.includes("Ready Time") },
+    { key: "login", label: "Login report", test: h => h.includes("Duration Formatted") || (h.includes("Login Time") && h.includes("Total Seconds")) },
+    { key: "cdr", label: "Call detail (CDR) export", test: h => h.includes("CallDisposition") && h.includes("CustomerPhoneNumber") },
+    { key: "missed", label: "Missed calls report", test: h => h.includes("Customer Phone") && h.includes("Disposition") && !h.includes("CallDisposition") },
+    { key: "queue", label: "Queue missed export", test: h => h.includes("Queue Call Date") },
+  ];
+  function detect(text) {
+    const first = parseCSV(text.slice(0, 4000))[0] || [];
+    const h = first.map(s => s.trim());
+    const t = TYPES.find(t => t.test(h));
+    return t ? t.key : null;
+  }
+
+  const secs = t => { if (!t) return 0; const p = String(t).trim().split(":").map(x => parseInt(parseFloat(x) || 0, 10)); while (p.length < 3) p.unshift(0); return p[0] * 3600 + p[1] * 60 + p[2]; };
+  const last10 = n => String(n || "").replace(/\D/g, "").slice(-10);
+  const int = x => parseInt(parseFloat(x || 0), 10) || 0;
+
+  function readCdr(text) {
+    let header = null; const out = [];
+    for (const r of parseCSV(text)) {
+      if (r[0] === "SNo") { header = r.slice(0, 26).map(s => s.trim()); continue; }
+      if (!header) continue;
+      const o = Object.fromEntries(header.map((k, i) => [k, (r[i] ?? "").trim()]));
+      o.AgentDisposition = r.length > 26 ? r[26] : "";
+      o.num = last10(o.CustomerPhoneNumber);
+      out.push(o);
+    }
+    return out;
+  }
+
+  /** files: { production: {name, text}, break?: ..., login?, cdr?, missed?, queue? } */
+  function build(files) {
+    if (!files.production) throw new Error("The production export is required.");
+    const prod = objects(parseCSV(files.production.text));
+    let date = (files.production.name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1];
+    const brkRows = files.break ? objects(parseCSV(files.break.text)) : [];
+    const loginRows = files.login ? objects(parseCSV(files.login.text)) : [];
+    if (!date) date = (brkRows[0] && brkRows[0]["S.NoDate"]) || (loginRows[0] && loginRows[0]["Work Date"]);
+    const cdr = files.cdr ? readCdr(files.cdr.text) : [];
+    if (!date && cdr[0]) date = cdr[0].CallDateTime.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) throw new Error("Could not find the report date. Keep the original file names from the call platform.");
+
+    const firstLogin = {};
+    loginRows.forEach(r => { const k = r["Member Name"], v = r["Login Time"]; if (k && v && (!firstLogin[k] || v < firstLogin[k])) firstLogin[k] = v; });
+    const lastCall = {}, uniq = {};
+    cdr.forEach(c => {
+      const m = c.MemberName;
+      if (c.CallDirection === "Outbound" || c.CallDisposition === "ANSWERED") { if (!lastCall[m] || c.CallEndTime > lastCall[m]) lastCall[m] = c.CallEndTime; }
+      if (c.CallDirection === "Outbound") (uniq[m] = uniq[m] || new Set()).add(c.num);
+    });
+    const brk = Object.fromEntries(brkRows.map(r => [r["Member Name"], r]));
+
+    const agents = [];
+    prod.forEach(r => {
+      const raw = r["Member Name"], hid = RENAME[raw] || raw;
+      const n = { inTot: int(r["Inbound Total"]), inAns: int(r["Inbound Answered"]), inMiss: int(r["Inbound Unanswered"]),
+        outTot: int(r["Outbound Total"]), outCon: int(r["Outbound Answered"]), outNot: int(r["Outbound Unanswered"]) };
+      const login = secs(r["Login Time"]);
+      const activity = Object.values(n).reduce((a, b) => a + b, 0);
+      if (hid === "AI Bot" || (login === 0 && activity === 0)) return;
+      const b = brk[raw] || r;
+      const [agent, team] = nameTeam(hid);
+      const fl = firstLogin[raw], lc = lastCall[raw];
+      agents.push({ date, team, agent, hue: hid, first: fl ? fl.slice(11, 16) : "", last: lc ? lc.slice(11, 16) : "",
+        login, ready: secs(r["Ready Time"]), notReady: secs(r["Not Ready Time"]), brk: secs(b["Break Time"]),
+        lunch: secs(b["Lunch Time"]), meeting: secs(b["Meeting Time"]), ...n,
+        inTalk: secs(r["Inbound Talk Time"]), outTalk: secs(r["Outbound Talk Time"]),
+        uniq: uniq[raw] ? uniq[raw].size : 0, remarks: login === 0 ? "Not logged in - calls routed & missed" : "" });
+    });
+
+    const qinfo = {};
+    if (files.queue) objects(parseCSV(files.queue.text)).forEach(q => { const k = last10(q["Member CID Number"]); (qinfo[k] = qinfo[k] || []).push(q); });
+    const answered = cdr.filter(c => c.CallDisposition === "ANSWERED");
+    const missed = [];
+    if (files.missed) objects(parseCSV(files.missed.text)).forEach(r => {
+      const hid = r["Member Name"]; const num = last10(r["Customer Phone"]); const t = r["Call Date"];
+      let agent, team, type, offered = "";
+      if (hid) { [agent, team] = nameTeam(RENAME[hid] || hid); type = "Missed by agent"; }
+      else {
+        agent = "No agent (queue)"; team = "Queue"; type = "Unanswered in queue";
+        const qs = qinfo[num];
+        if (qs && qs.length) {
+          const ids = String(qs[0]["Offered Agents"] || "").split(",").filter(Boolean);
+          offered = ids.map(i => EXT[i] ? nameTeam(EXT[i])[0] : i).join(", ");
+          if (!offered) {
+            const g = String(qs[0]["Queue Group Name"] || ""); const part = g.includes("-") ? g.split("-").slice(1).join("-") : g;
+            offered = "Line group: " + part.split(",").map(x => AGENTS["Hue" + x] ? AGENTS["Hue" + x][0] : "Hue" + x).join(", ");
+          }
+        }
+      }
+      const reached = answered.some(c => c.num === num && c.CallStartTime > t);
+      missed.push({ date, time: t.slice(11, 19), agent, team, phone: num, type, offered, reached });
+    });
+    const cnt = {}; missed.forEach(m => cnt[m.phone] = (cnt[m.phone] || 0) + 1);
+    missed.forEach(m => m.attempts = cnt[m.phone]);
+    return { date, agents, missed };
+  }
+  return { TYPES, detect, build };
+})();
+
+
+const CONF = {"targets": {"login": 27000, "loginA": 25200, "aht": 120, "ahtA": 150, "bl": 4500, "blA": 5400, "miss": 5, "missA": 10}, "order": ["Krishnaveni", "Abdul", "Rakesh", "Rohit", "Mani", "Madhi", "Suganya", "Khizer", "Sam", "Catharine", "Nasreen"], "static": true};
+const DATA = { daily: [], missed: [], meta: {} };
+let db = null, downloads = null;
+const T = CONF.targets;
+const ORDER = CONF.order;
+const state = { date: null, team: "All", miss: "open", q: "", sort: null };
+const charts = {};
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hms = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`; };
+const hm = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.round(s % 3600 / 60); return `${h}h ${String(m).padStart(2, "0")}m`; };
+const ms = s => { s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const pct = x => (x * 100).toFixed(1) + "%";
+const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let dates = [];
+
+function derive(r) {
+  const handled = r.inAns + r.outCon, talk = r.inTalk + r.outTalk;
+  return { ...r, total: r.inTot + r.outTot, handled, talk, aht: handled ? talk / handled : 0,
+    connect: r.outTot ? r.outCon / r.outTot : 0, bl: r.brk + r.lunch };
+}
+function rowsFor(date, team) {
+  return DATA.daily.filter(r => r.date === date && (team === "All" || r.team === team)).map(derive)
+    .sort((a, b) => ORDER.indexOf(a.agent) - ORDER.indexOf(b.agent));
+}
+function agg(rows) {
+  const s = k => rows.reduce((a, r) => a + r[k], 0);
+  const handled = s("handled"), talk = s("talk"), outTot = s("outTot");
+  return { total: s("total"), handled, inMiss: s("inMiss"), talk, aht: handled ? talk / handled : 0,
+    connect: outTot ? s("outCon") / outTot : 0, brk: s("brk"), lunch: s("lunch"), meeting: s("meeting"),
+    login: s("login"), loggedIn: rows.filter(r => r.login > 0).length, n: rows.length };
+}
+function missedFor(date, team) {
+  return DATA.missed.filter(m => m.date === date && (team === "All" || m.team === team || (m.team === "Queue" && team === "All")));
+}
+
+/* ---------- KPIs ---------- */
+function renderKpis(rows, miss) {
+  const a = agg(rows);
+  const queue = miss.filter(m => m.type === "Unanswered in queue").length;
+  const open = miss.filter(m => !m.reached).length;
+  const metLogin = rows.filter(r => r.login >= T.login).length;
+  const tiles = [
+    ["Total calls", a.total.toLocaleString("en-IN"), `${rows.reduce((x, r) => x + r.inTot, 0)} in · ${rows.reduce((x, r) => x + r.outTot, 0)} out`],
+    ["Calls handled", a.handled.toLocaleString("en-IN"), `${pct(a.total ? a.handled / a.total : 0)} of all calls`],
+    ["Calls missed", a.inMiss, "inbound, rang an agent", a.inMiss > 0],
+    ...(state.team === "All" ? [["Queue unanswered", queue, "no agent picked up", queue > 0]] : []),
+    ["Not reached yet", open, "missed, no later connect", open > 0],
+    ["Team AHT", ms(a.aht), `${rows.filter(r => r.handled && r.aht > T.aht).length} agent(s) above 2:00`, a.aht > T.aht],
+    ["Outbound connect", pct(a.connect), "connected ÷ dialled"],
+    ["Login target met", `${metLogin}/${a.loggedIn}`, `${a.n - a.loggedIn} not logged in`, metLogin < a.loggedIn],
+    ["Break + lunch over 1h 15m", `${rows.filter(r => r.login > 0 && r.brk + r.lunch > T.bl).length}/${a.loggedIn}`, `team total ${hm(a.brk + a.lunch)} · meeting ${hm(a.meeting)}`, rows.some(r => r.login > 0 && r.brk + r.lunch > T.bl)],
+  ];
+  document.getElementById("kpis").innerHTML = tiles.map(([l, v, s, alert]) =>
+    `<div class="kpi${alert ? " alert" : ""}"><div class="lab">${l}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`).join("");
+}
+
+/* ---------- Needs attention ---------- */
+function renderAttn(rows, miss) {
+  const items = [];
+  const absent = rows.filter(r => r.login === 0);
+  absent.forEach(r => items.push(["bad", "!", `<b>${esc(r.agent)}</b> did not log in, but ${r.inTot} call${r.inTot === 1 ? " was" : "s were"} routed to them and missed.`]));
+  const below = rows.filter(r => r.login > 0 && r.login < T.login);
+  if (below.length) items.push(["bad", "!", `<b>${below.length} below login target:</b> ${below.map(r => `${esc(r.agent)} (${hm(r.login)})`).join(", ")}.`]);
+  const bl = rows.filter(r => r.login > 0 && r.brk + r.lunch > T.bl);
+  if (bl.length) items.push(["warn", "!", `<b>Break + lunch over 1h 15m:</b> ${bl.map(r => `${esc(r.agent)} (${hm(r.brk + r.lunch)})`).join(", ")}.`]);
+  const ahtHi = rows.filter(r => r.handled && r.aht > T.aht);
+  if (ahtHi.length) items.push(["warn", "!", `<b>AHT above 2:00:</b> ${ahtHi.map(r => `${esc(r.agent)} (${ms(r.aht)})`).join(", ")}.`]);
+  const top = rows.filter(r => r.login > 0).sort((a, b) => b.inMiss - a.inMiss)[0];
+  if (top && top.inMiss >= 10) {
+    const mine = miss.filter(m => m.agent === top.agent);
+    const nums = new Set(mine.map(m => m.phone)).size;
+    items.push(["warn", "!", `<b>${esc(top.agent)}</b> missed the most inbound calls: ${top.inMiss}, from ${nums} different number${nums === 1 ? "" : "s"}.`]);
+  }
+  const open = miss.filter(m => !m.reached);
+  const openNums = new Set(open.map(m => m.phone)).size;
+  if (open.length) items.push(["bad", "!", `<b>${openNums} customers still to call back</b> (${open.length} missed calls with no later connect). See the worklist below.`]);
+  const hours = {};
+  miss.forEach(m => { const h = +m.time.slice(0, 2); hours[h] = (hours[h] || 0) + 1; });
+  const peak = Object.entries(hours).sort((a, b) => b[1] - a[1])[0];
+  if (peak) { const h = +peak[0]; items.push(["warn", "i", `Most misses came between <b>${h % 12 || 12}–${(h + 1) % 12 || 12} ${h + 1 < 12 ? "AM" : "PM"}</b> (${peak[1]} calls).`]); }
+  const met = rows.filter(r => r.login >= T.login);
+  if (met.length) items.push(["good", "✓", `<b>Login target met:</b> ${met.map(r => esc(r.agent)).join(", ")}.`]);
+  document.getElementById("attn").innerHTML = items.map(([c, ic, t]) => `<li class="${c}"><span class="ic">${ic}</span><span>${t}</span></li>`).join("") || `<li class="good"><span class="ic">✓</span><span>Nothing to flag for this day.</span></li>`;
+  document.getElementById("attnCount").textContent = `${items.filter(i => i[0] !== "good").length} items`;
+}
+
+/* ---------- Scoreboard ---------- */
+const COLS = [
+  ["agent", "Agent", "l"], ["first", "First login", ""], ["login", "Login", ""], ["total", "Calls", ""],
+  ["handled", "Handled", ""], ["inMiss", "Missed", ""], ["connect", "Connect %", ""], ["aht", "AHT", ""],
+  ["brk", "Break", ""], ["lunch", "Lunch", ""], ["bl", "Break + lunch", ""], ["meeting", "Meeting", ""], ["status", "Status", "l"],
+];
+const ragMin = (v, t, a) => v >= t ? "good" : v >= a ? "warn" : "bad";
+const ragMax = (v, t, a) => v <= t ? "good" : v <= a ? "warn" : "bad";
+function statusPills(r) {
+  if (r.login === 0) return `<span class="pill bad">Not logged in</span>`;
+  const p = [];
+  const lr = ragMin(r.login, T.login, T.loginA);
+  if (lr !== "good") p.push(`<span class="pill ${lr}">Login short ${hm(T.login - r.login)}</span>`);
+  const ar = r.handled ? ragMax(r.aht, T.aht, T.ahtA) : "good";
+  if (ar !== "good") p.push(`<span class="pill ${ar}">AHT +${Math.round(r.aht - T.aht)}s</span>`);
+  const br = ragMax(r.bl, T.bl, T.blA);
+  if (br !== "good") p.push(`<span class="pill ${br}">Break + lunch +${Math.round((r.bl - T.bl) / 60)}m</span>`);
+  return p.length ? p.join(" ") : `<span class="pill good">All targets met</span>`;
+}
+function boardRow(r, ctx) {
+  const off = r.login === 0;
+  const lp = Math.min(1, r.login / T.login) * 100;
+  const lr = ragMin(r.login, T.login, T.loginA);
+  const heat = " c-" + ragMax(r.inMiss, T.miss, T.missA);
+  const conn = !r.outTot ? "" : r.connect >= ctx.avgConn ? " c-good" : r.connect >= ctx.avgConn - 0.05 ? " c-warn" : " c-bad";
+  return `<tr>
+    <td><span class="agent-name">${esc(r.agent)}</span><span class="agent-id">${esc(r.hue)}</span></td>
+    <td class="num">${r.first || "–"}</td>
+    <td class="num${off ? " c-bad" : " c-" + lr}"><span class="meter"><i><span class="${off ? "" : lr === "good" ? "" : lr}" style="width:${lp}%"></span></i>${hms(r.login)}</span></td>
+    <td class="num">${r.total}</td><td class="num">${r.handled}</td>
+    <td class="num${heat}">${r.inMiss}</td>
+    <td class="num${conn}">${r.outTot ? pct(r.connect) : "–"}</td>
+    <td class="num${r.handled ? " c-" + ragMax(r.aht, T.aht, T.ahtA) : ""}">${r.handled ? ms(r.aht) : "–"}</td>
+    <td class="num">${hms(r.brk)}</td>
+    <td class="num">${hms(r.lunch)}</td>
+    <td class="num${off ? "" : " c-" + ragMax(r.bl, T.bl, T.blA)}">${hms(r.bl)}</td>
+    <td class="num">${hms(r.meeting)}</td>
+    <td class="l">${statusPills(r)}</td></tr>`;
+}
+function totalRow(label, rows) {
+  const a = agg(rows);
+  return `<tr class="total"><td>${label}</td><td></td><td class="num">${hms(a.login)}</td><td class="num">${a.total}</td>
+    <td class="num">${a.handled}</td><td class="num">${a.inMiss}</td><td class="num">${pct(a.connect)}</td>
+    <td class="num">${ms(a.aht)}</td><td class="num">${hms(a.brk)}</td><td class="num">${hms(a.lunch)}</td>
+    <td class="num">${hms(a.brk + a.lunch)}</td><td class="num">${hms(a.meeting)}</td>
+    <td class="l">Login met ${rows.filter(r => r.login >= T.login).length}/${a.loggedIn} · AHT met ${rows.filter(r => r.handled && r.aht <= T.aht).length}/${rows.filter(r => r.handled).length} · Break + lunch met ${rows.filter(r => r.login > 0 && r.bl <= T.bl).length}/${a.loggedIn}</td></tr>`;
+}
+function updatedAt(date) {
+  const m = DATA.meta[date];
+  if (!m || !m.uploadedAt) return "";
+  const t = new Date(m.uploadedAt);
+  return t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true }) + ", " + t.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
+function renderBoard(rows) {
+  const s = state.sort;
+  const asOf = updatedAt(state.date);
+  const head = `<thead><tr>${COLS.map(([k, l, c]) => {
+    const dir = s && s.k === k ? (s.d > 0 ? "▲" : "▼") : null;
+    const sub = k === "login" && asOf ? `<span class="th-sub">as of ${asOf}</span>` : "";
+    return `<th class="${c}">${k === "status" ? l : `<button type="button" data-k="${k}" ${dir ? `data-dir="${dir}"` : ""}>${l}</button>`}${sub}</th>`;
+  }).join("")}</tr></thead>`;
+  const sorter = arr => s ? [...arr].sort((a, b) => (a[s.k] > b[s.k] ? 1 : a[s.k] < b[s.k] ? -1 : 0) * s.d) : arr;
+  let body = "";
+  const teams = state.team === "All" ? ["Customer Champion", "Feedback", "Unmapped"] : [state.team];
+  teams.forEach(t => {
+    const tr = rows.filter(r => r.team === t);
+    if (!tr.length) return;
+    if (state.team === "All") body += `<tr class="team-row"><td colspan="${COLS.length}">${t === "Feedback" ? "Feedback team" : t === "Unmapped" ? "Unmapped extensions" : "Customer Champion team"}</td></tr>`;
+    const act = rows.filter(r => r.login > 0);
+    const ctx = { maxMiss: Math.max(0, ...rows.map(r => r.inMiss)), avgConn: agg(act).connect };
+    body += sorter(tr).map(r => boardRow(r, ctx)).join("") + totalRow(`${t === "Customer Champion" ? "Customer Champion" : t} total`, tr);
+  });
+  const tbl = document.getElementById("board");
+  tbl.innerHTML = head + `<tbody>${body || `<tr><td colspan="${COLS.length}" class="empty">No agents for this selection.</td></tr>`}</tbody>`;
+  tbl.querySelectorAll("th button").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.k;
+    state.sort = state.sort && state.sort.k === k ? (state.sort.d === -1 ? { k, d: 1 } : null) : { k, d: -1 };
+    renderBoard(rowsFor(state.date, state.team));
+  }));
+}
+
+/* ---------- Charts ---------- */
+function baseOpts(extra = {}) {
+  const ink2 = css("--ink-2"), grid = css("--line-soft");
+  return {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+    interaction: { mode: "index", intersect: false },
+    plugins: { legend: { display: false }, tooltip: {
+      backgroundColor: css("--panel"), titleColor: css("--ink"), bodyColor: css("--ink-2"),
+      borderColor: css("--line"), borderWidth: 1, padding: 10, boxPadding: 4,
+      titleFont: { family: css("--font-ui"), weight: "700" }, bodyFont: { family: css("--font-num") } } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: ink2, font: { family: css("--font-ui"), size: 11 }, autoSkip: false, maxRotation: 50 }, border: { color: css("--line") } },
+      y: { beginAtZero: true, grid: { color: grid }, ticks: { color: ink2, font: { family: css("--font-num"), size: 11 } }, border: { display: false } },
+    }, ...extra,
+  };
+}
+const barDs = (label, data, color, extra = {}) => ({ type: "bar", label, data, backgroundColor: color, borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: "bottom", maxBarThickness: 26, borderColor: css("--panel"), borderWidth: { left: 1, right: 1 }, ...extra });
+const lineDs = (label, val, n) => ({ type: "line", label, data: Array(n).fill(val), borderColor: css("--target"), borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, fill: false });
+
+function mk(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+
+function renderCharts(rows, miss) {
+  const names = rows.map(r => r.agent), n = names.length;
+  const tipT = (fmt) => ({ callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}` } });
+
+  mk("cCalls", { data: { labels: names, datasets: [barDs("Handled", rows.map(r => r.handled), css("--s-handled")), barDs("Missed", rows.map(r => r.inMiss), css("--s-missed"))] }, options: baseOpts() });
+
+  const lo = baseOpts(); lo.plugins.tooltip = { ...lo.plugins.tooltip, ...tipT(v => hm(v * 3600)) };
+  lo.scales.y.ticks.callback = v => v + "h";
+  mk("cLogin", { data: { labels: names, datasets: [
+    barDs("Login", rows.map(r => +(r.login / 3600).toFixed(2)), rows.map(r => ({ good: css("--good"), warn: css("--s-break"), bad: css("--bad") })[ragMin(r.login, T.login, T.loginA)])),
+    lineDs("Target", T.login / 3600, n)] }, options: lo });
+
+  const ao = baseOpts(); ao.plugins.tooltip = { ...ao.plugins.tooltip, ...tipT(v => ms(v)) };
+  ao.scales.y.ticks.callback = v => ms(v);
+  mk("cAht", { data: { labels: names, datasets: [barDs("AHT", rows.map(r => Math.round(r.aht)), rows.map(r => ({ good: css("--good"), warn: css("--s-break"), bad: css("--bad") })[ragMax(r.aht, T.aht, T.ahtA)])), lineDs("Target", T.aht, n)] }, options: ao });
+
+  const bo = baseOpts(); bo.plugins.tooltip = { ...bo.plugins.tooltip, ...tipT(v => v + " min"),
+    footer: items => { const i = items[0].dataIndex, r = rows[i]; return `Total ${hm(r.bl)}${r.bl > T.bl ? " · over target" : ""}`; } };
+  bo.scales.x.stacked = true; bo.scales.y.stacked = true;
+  const lineB = lineDs("Target", T.bl / 60, n); lineB.stack = "t";
+  mk("cBreak", { data: { labels: names, datasets: [
+    barDs("Break", rows.map(r => Math.round(r.brk / 60)), css("--s-break"), { borderRadius: 0, borderWidth: { top: 1 } }),
+    barDs("Lunch", rows.map(r => Math.round(r.lunch / 60)), css("--s-lunch"), { borderWidth: { bottom: 1 } }),
+    lineB] }, options: bo });
+
+  const to = baseOpts({ indexAxis: "y" });
+  to.interaction = { mode: "index", intersect: false, axis: "y" };
+  to.scales = { x: { ...to.scales.y, stacked: true, ticks: { ...to.scales.y.ticks, callback: v => v + "h" } }, y: { ...to.scales.x, stacked: true, ticks: { ...to.scales.x.ticks, maxRotation: 0 } } };
+  to.plugins.tooltip = { ...to.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${hm(c.raw * 3600)}` } };
+  const seg = (label, k, color) => ({ type: "bar", label, data: rows.map(r => +(r[k] / 3600).toFixed(2)), backgroundColor: color, borderColor: css("--panel"), borderWidth: 1, maxBarThickness: 18 });
+  mk("cTime", { data: { labels: names, datasets: [seg("Ready", "ready", css("--s-handled")), seg("Not ready", "notReady", css("--s-notready")), seg("Break", "brk", css("--s-break")), seg("Lunch", "lunch", css("--s-lunch")), seg("Meeting", "meeting", css("--s-meeting"))] }, options: to });
+
+  const hrs = []; for (let h = 7; h <= 19; h++) hrs.push(h);
+  const hLab = hrs.map(h => `${h % 12 || 12}${h < 12 ? "am" : "pm"}`);
+  const cnt = (h, t) => miss.filter(m => +m.time.slice(0, 2) === h && m.type === t).length;
+  const ho = baseOpts(); ho.scales.x.stacked = true; ho.scales.y.stacked = true; ho.scales.y.ticks.precision = 0;
+  const hd = [barDs("Missed by agent", hrs.map(h => cnt(h, "Missed by agent")), css("--s-missed"), { borderRadius: 0, borderWidth: { top: 1 } })];
+  if (state.team === "All") hd.push(barDs("Unanswered in queue", hrs.map(h => cnt(h, "Unanswered in queue")), css("--s-queue"), { borderWidth: { bottom: 1 } }));
+  mk("cHour", { data: { labels: hLab, datasets: hd }, options: ho });
+
+  // trend
+  const tr = dates.map(d => { const rs = rowsFor(d, state.team), a = agg(rs); return { d, a, q: DATA.missed.filter(m => m.date === d && m.type === "Unanswered in queue").length }; });
+  const tLab = tr.map(t => new Date(t.d + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short" }));
+  const pt = (c) => ({ borderColor: c, backgroundColor: c, pointRadius: 5, pointHoverRadius: 7, borderWidth: 2, tension: 0, pointBorderColor: css("--panel"), pointBorderWidth: 2 });
+  const tds = [{ type: "line", label: "Calls handled", data: tr.map(t => t.a.handled), ...pt(css("--s-handled")) },
+               { type: "line", label: "Missed (agent)", data: tr.map(t => t.a.inMiss), ...pt(css("--s-missed")) }];
+  if (state.team === "All") tds.push({ type: "line", label: "Queue unanswered", data: tr.map(t => t.q), ...pt(css("--s-queue")) });
+  const t1 = baseOpts(); t1.scales.x.offset = true;
+  mk("cTrend", { data: { labels: tLab, datasets: tds }, options: t1 });
+  const t2 = baseOpts(); t2.scales.x.offset = true; t2.scales.y.max = 1; t2.scales.y.ticks.callback = v => Math.round(v * 100) + "%";
+  t2.plugins.tooltip = { ...t2.plugins.tooltip, ...tipT(v => pct(v)) };
+  mk("cTrend2", { data: { labels: tLab, datasets: [{ type: "line", label: "Outbound connect %", data: tr.map(t => +t.a.connect.toFixed(4)), ...pt(css("--s-aht")) }] }, options: t2 });
+  document.getElementById("trendNote").textContent = dates.length < 2 ? "1 day so far · a new point is added each day you upload" : `${dates.length} days`;
+}
+
+/* ---------- Missed worklist ---------- */
+function renderMissed(miss) {
+  let list = miss;
+  if (state.miss === "open") list = list.filter(m => !m.reached);
+  if (state.miss === "queue") list = list.filter(m => m.type === "Unanswered in queue");
+  const q = state.q.trim().toLowerCase();
+  if (q) list = list.filter(m => m.phone.includes(q) || m.agent.toLowerCase().includes(q) || m.offered.toLowerCase().includes(q));
+  // one row per customer number for the worklist
+  const byNum = new Map();
+  list.forEach(m => {
+    const e = byNum.get(m.pk || m.phone) || { phone: m.phone, first: m.time, last: m.time, n: 0, agents: new Set(), types: new Set(), reached: m.reached, offered: new Set() };
+    e.n++; if (m.time < e.first) e.first = m.time; if (m.time > e.last) e.last = m.time;
+    e.agents.add(m.agent); e.types.add(m.type); if (m.offered) e.offered.add(m.offered); e.reached = e.reached && m.reached;
+    byNum.set(m.pk || m.phone, e);
+  });
+  const arr = [...byNum.values()].sort((a, b) => b.n - a.n || (a.last < b.last ? 1 : -1));
+  document.getElementById("missedCount").textContent = `${arr.length} customer${arr.length === 1 ? "" : "s"} · ${list.length} missed call${list.length === 1 ? "" : "s"}`;
+  const head = `<thead><tr><th>Customer number</th><th>Times tried</th><th>First</th><th>Last</th><th class="l">Rang / offered to</th><th class="l">Type</th><th class="l">Status</th></tr></thead>`;
+  const body = arr.map(e => {
+    const who = [...e.agents].filter(a => a !== "No agent (queue)").concat([...e.offered]).join(", ") || "–";
+    return `<tr><td class="num">${esc(e.phone)}</td><td class="num${e.n >= 3 ? " cell-bad" : ""}">${e.n}</td><td class="num">${e.first.slice(0, 5)}</td><td class="num">${e.last.slice(0, 5)}</td>
+      <td class="l">${esc(who)}</td><td class="l">${[...e.types].map(t => t === "Unanswered in queue" ? `<span class="pill neutral">Queue</span>` : `<span class="pill neutral">Agent</span>`).join(" ")}</td>
+      <td class="l">${e.reached ? `<span class="pill good">Reached later</span>` : `<span class="pill bad">Call back</span>`}</td></tr>`;
+  }).join("");
+  document.getElementById("missTbl").innerHTML = head + `<tbody>${body || `<tr><td colspan="7" class="empty">No missed calls match this filter.</td></tr>`}</tbody>`;
+}
+
+function render() {
+  const has = dates.length > 0;
+  document.getElementById("dash").hidden = !has;
+  document.getElementById("emptyState").hidden = has;
+  document.getElementById("dlBtn").hidden = !has || !downloads;
+  if (!has) return;
+  const meta = DATA.meta[state.date];
+  document.getElementById("built").textContent = meta && meta.uploadedAt ? `Figures for this day are as of the upload at ${updatedAt(state.date)}; login time keeps growing until agents log off.` : "";
+  const rows = rowsFor(state.date, state.team), miss = missedFor(state.date, state.team);
+  const up = updatedAt(state.date);
+  document.getElementById("subtitle").textContent = `${fmtDate(state.date)} · ${state.team === "All" ? "All teams" : state.team + " team"}${up ? ` · updated ${up}` : ""}`;
+  renderKpis(rows, miss); renderAttn(rows, miss); renderBoard(rows); renderCharts(rows, miss); renderMissed(miss);
+}
+
+/* ---------- Controls ---------- */
+const sel = document.getElementById("dateSel");
+function fillDates() {
+  sel.innerHTML = dates.slice().reverse().map(d => `<option value="${d}">${fmtDate(d)}</option>`).join("");
+  if (!dates.includes(state.date)) state.date = dates[dates.length - 1] || null;
+  if (state.date) sel.value = state.date;
+  sel.disabled = !dates.length;
+}
+sel.addEventListener("change", () => { state.date = sel.value; render(); });
+function segWire(id, key, attr) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(`#${id} button`).forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    state[key] = b.dataset[attr]; key === "miss" ? renderMissed(missedFor(state.date, state.team)) : render();
+  }));
+}
+segWire("teamSeg", "team", "team");
+segWire("missSeg", "miss", "f");
+document.getElementById("missSearch").addEventListener("input", e => { state.q = e.target.value; renderMissed(missedFor(state.date, state.team)); });
+
+if (window.Chart) { Chart.defaults.font.family = css("--font-ui"); }
+fillDates();
+render();
+/* ---------- Live data, upload and export ---------- */
+const staged = {};
+let pendingDate = null, xlsxLoading = null;
+const $ = id => document.getElementById(id);
+const say = (cls, html) => { $("upMsg").innerHTML = html ? `<div class="msg ${cls}">${html}</div>` : ""; };
+
+function renderSlots() {
+  $("slots").innerHTML = INGEST.TYPES.map(t => {
+    const f = staged[t.key];
+    return `<li class="${f ? "ok" : ""}"><span class="dot">${f ? "✓" : ""}</span><span><b>${t.label}</b>${t.required ? " (required)" : ""}<span class="fn">${f ? esc(f.name) : "waiting"}</span></span></li>`;
+  }).join("");
+  const n = Object.keys(staged).length;
+  $("buildBtn").disabled = !staged.production;
+  $("clearBtn").hidden = n === 0;
+}
+
+async function handleFiles(list) {
+  const unknown = [];
+  for (const f of list) {
+    if (!/\.csv$/i.test(f.name)) { unknown.push(f.name); continue; }
+    const text = await f.text();
+    const k = INGEST.detect(text);
+    if (k) staged[k] = { name: f.name, text }; else unknown.push(f.name);
+  }
+  renderSlots();
+  const names = Object.values(staged).map(f => (f.name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1]).filter(Boolean);
+  const distinct = [...new Set(names)];
+  if (distinct.length > 1) {
+    $("buildBtn").disabled = true;
+    say("bad", `These files are from different days (${distinct.map(fmtDate).join(", ")}). Clear and drop one day's files at a time.`);
+    return;
+  }
+  const missing = INGEST.TYPES.filter(t => !staged[t.key]).map(t => t.label);
+  if (unknown.length) say("warn", `Not recognised: ${unknown.map(esc).join(", ")}. Only the six call-platform CSV exports are used.`);
+  else if (missing.length) say("warn", `Still waiting for: ${missing.join(", ")}. You can build now, but those parts of the report will be empty.`);
+  else say("", "");
+  if (!missing.length && !unknown.length) buildReport();
+}
+
+async function buildReport() {
+  if (!db) { say("bad", "Reports can't be saved in this view. Open the dashboard while signed in to claude.ai."); return; }
+  let day;
+  try { day = INGEST.build(staged); } catch (e) { say("bad", esc(e.message)); return; }
+  if (!day.agents.length) { say("bad", "The production export has no agent rows. Check that it is the right file."); return; }
+  const replacing = dates.includes(day.date);
+  $("buildBtn").disabled = true;
+  say("warn", `Building the report for ${fmtDate(day.date)}…`);
+  try {
+    await db.collection("days").doc(day.date).set({
+      date: day.date, agents: day.agents, missed: day.missed,
+      files: Object.values(staged).map(f => f.name), uploadedAt: new Date().toISOString(),
+    });
+    pendingDate = day.date; state.date = day.date;
+    Object.keys(staged).forEach(k => delete staged[k]);
+    renderSlots();
+    say("good", `Report for <b>${fmtDate(day.date)}</b> is ready: ${day.agents.length} agents, ${day.missed.length} missed calls.${replacing ? " It replaced the earlier upload for that day." : ""}`);
+  } catch (e) {
+    $("buildBtn").disabled = false;
+    const why = e && e.code === "not_granted" ? "You have view-only access, so you can't add reports. Ask the owner for edit access."
+      : e && (e.code === "resource_exhausted" || e.code === "quota_exceeded") ? "The report is too large to save. Tell Claude so the storage can be split."
+      : `Saving failed${e && e.message ? `: ${esc(e.message)}` : ""}. Try again in a moment.`;
+    say("bad", why);
+  }
+}
+
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handleFiles([...e.dataTransfer.files]));
+$("fileIn").addEventListener("change", e => { handleFiles([...e.target.files]); e.target.value = ""; });
+$("buildBtn").addEventListener("click", buildReport);
+$("clearBtn").addEventListener("click", () => { Object.keys(staged).forEach(k => delete staged[k]); renderSlots(); say("", ""); });
+renderSlots();
+
+/* Excel export of everything saved so far */
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  return xlsxLoading = xlsxLoading || new Promise((ok, no) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = ok; s.onerror = () => { xlsxLoading = null; no(new Error("Excel library did not load")); };
+    document.head.appendChild(s);
+  });
+}
+$("dlBtn").addEventListener("click", async () => {
+  const btn = $("dlBtn"); btn.disabled = true; btn.textContent = "Preparing…";
+  try {
+    await loadXlsx();
+    const D = 86400, rowsAll = DATA.daily.map(derive).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : ORDER.indexOf(a.agent) - ORDER.indexOf(b.agent));
+    const st = (cond, off) => off ? "-" : cond ? "Met" : "Missed";
+    const head = ["Date", "Team", "Agent", "Hue ID", "First Login", "Login (as of update)", "Ready", "Not Ready", "Break", "Lunch", "Break + Lunch", "Meeting",
+      "Inbound", "Inbound Answered", "Inbound Missed", "Outbound", "Outbound Connected", "Total Calls", "Calls Handled", "Talk Time", "AHT", "Outbound Connect %",
+      "Login Status", "AHT Status", "Break + Lunch Status", "Remarks", "Updated At"];
+    const body = rowsAll.map(r => [new Date(r.date + "T00:00:00Z"), r.team, r.agent, r.hue, r.first, r.login / D, r.ready / D, r.notReady / D, r.brk / D, r.lunch / D, r.bl / D, r.meeting / D,
+      r.inTot, r.inAns, r.inMiss, r.outTot, r.outCon, r.total, r.handled, r.talk / D, r.aht / D, r.connect,
+      st(r.login >= T.login, r.login === 0), r.handled ? st(r.aht <= T.aht) : "-", st(r.bl <= T.bl, r.login === 0), r.remarks || "", DATA.meta[r.date] && DATA.meta[r.date].uploadedAt ? new Date(DATA.meta[r.date].uploadedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }) : ""]);
+    const ws1 = XLSX.utils.aoa_to_sheet([head, ...body], { cellDates: true });
+    const fmtCols = { 0: "dd-mmm-yyyy", 5: "[h]:mm:ss", 6: "[h]:mm:ss", 7: "[h]:mm:ss", 8: "[h]:mm:ss", 9: "[h]:mm:ss", 10: "[h]:mm:ss", 11: "[h]:mm:ss", 19: "[h]:mm:ss", 20: "[m]:ss", 21: "0.0%" };
+    body.forEach((_, i) => Object.entries(fmtCols).forEach(([c, z]) => { const ref = XLSX.utils.encode_cell({ r: i + 1, c: +c }); if (ws1[ref]) ws1[ref].z = z; }));
+    ws1["!cols"] = head.map((h, i) => ({ wch: i === 25 ? 34 : i === 26 ? 22 : Math.max(10, h.length + 2) }));
+    ws1["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: body.length, c: head.length - 1 } }) };
+
+    const tHead = ["Date", "Team", "Agents Logged In", "Total Calls", "Calls Handled", "Calls Missed", "Queue Unanswered", "Outbound Connect %", "Team AHT", "Total Login", "Total Break + Lunch", "Total Meeting", "Not Reached (missed)"];
+    const tBody = [];
+    dates.forEach(d => ["Customer Champion", "Feedback", "All"].forEach(team => {
+      const a = agg(rowsFor(d, team)), m = missedFor(d, team);
+      tBody.push([new Date(d + "T00:00:00Z"), team === "All" ? "All teams" : team, a.loggedIn, a.total, a.handled, a.inMiss,
+        team === "All" ? m.filter(x => x.type === "Unanswered in queue").length : "", a.connect, a.aht / D, a.login / D, (a.brk + a.lunch) / D, a.meeting / D,
+        team === "All" ? m.filter(x => !x.reached).length : ""]);
+    }));
+    const ws2 = XLSX.utils.aoa_to_sheet([tHead, ...tBody], { cellDates: true });
+    const f2 = { 0: "dd-mmm-yyyy", 7: "0.0%", 8: "[m]:ss", 9: "[h]:mm:ss", 10: "[h]:mm:ss", 11: "[h]:mm:ss" };
+    tBody.forEach((_, i) => Object.entries(f2).forEach(([c, z]) => { const ref = XLSX.utils.encode_cell({ r: i + 1, c: +c }); if (ws2[ref]) ws2[ref].z = z; }));
+    ws2["!cols"] = tHead.map(h => ({ wch: Math.max(11, h.length + 2) }));
+
+    const mHead = ["Date", "Time", "Agent", "Team", "Customer Phone", "Type", "Offered To", "Attempts That Day", "Connected Later That Day"];
+    const mBody = DATA.missed.slice().sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
+      .map(m => [new Date(m.date + "T00:00:00Z"), m.time, m.agent, m.team, m.phone, m.type, m.offered, m.attempts, m.reached ? "Yes" : "No"]);
+    const ws3 = XLSX.utils.aoa_to_sheet([mHead, ...mBody], { cellDates: true });
+    mBody.forEach((_, i) => { const ref = XLSX.utils.encode_cell({ r: i + 1, c: 0 }); if (ws3[ref]) ws3[ref].z = "dd-mmm-yyyy"; });
+    ws3["!cols"] = mHead.map((h, i) => ({ wch: i === 6 ? 32 : Math.max(11, h.length + 2) }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws2, "Team Daily");
+    XLSX.utils.book_append_sheet(wb, ws1, "Agent Daily");
+    XLSX.utils.book_append_sheet(wb, ws3, "Missed Calls");
+    const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const last = dates[dates.length - 1];
+    await downloads.save({ filename: `CarQure_Call_Report_to_${last}.xlsx`, data: new Uint8Array(out) });
+  } catch (e) {
+    if (!(e && e.code === "declined")) alertMsg(e && e.code === "unavailable" ? "Downloads aren't available in this view." : `The Excel file couldn't be made${e && e.message ? `: ${esc(e.message)}` : ""}.`);
+  } finally { btn.disabled = false; btn.textContent = "Download Excel"; }
+});
+function alertMsg(t) { $("emptyText"); say("bad", t); }
+
+/* Connect to the shared store */
+/* GitHub Pages build: data comes from data/days.json, built by the repo's workflow */
+async function loadStatic() {
+  downloads = { save: async ({ filename, data }) => {
+    const url = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000); return { status: "saved" };
+  } };
+  $("uploadPanel").querySelector(".upload").innerHTML = `<p style="margin:0;color:var(--ink-2);grid-column:1/-1">To add a day, open the <b>uploads</b> folder in the GitHub repository, choose <b>Add file → Upload files</b>, drop the six call-platform CSVs and commit. The dashboard rebuilds itself in about two minutes.</p>`;
+  $("upHint").textContent = "";
+  try {
+    const res = await fetch("data/days.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    const days = await res.json();
+    DATA.daily = []; DATA.missed = []; DATA.meta = {};
+    days.forEach(v => { v.agents.forEach(a => DATA.daily.push(a)); v.missed.forEach(m => DATA.missed.push(m)); DATA.meta[v.date] = { uploadedAt: v.uploadedAt, files: v.files || [] }; });
+    dates = [...new Set(DATA.daily.map(r => r.date))].sort();
+    if (!dates.length) { $("emptyTitle").textContent = "No reports yet"; $("emptyText").textContent = "Upload the six CSV exports to the uploads folder in the repository."; }
+  } catch (e) {
+    $("emptyTitle").textContent = "Reports couldn't load";
+    $("emptyText").textContent = "data/days.json was not found. Check that the GitHub Action finished.";
+  }
+  fillDates(); render();
+}
+
+(async () => {
+  if (CONF.static) return loadStatic();
+  const use = n => (window.claude && window.claude.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+  const [dbNs, dl, user] = await Promise.all([use("db"), use("downloads"), use("user")]);
+  db = dbNs; downloads = dl;
+  if (!db) {
+    $("emptyTitle").textContent = "Saved reports aren't available here";
+    $("emptyText").textContent = "Open this dashboard while signed in to claude.ai to see the reports and upload new days.";
+    $("uploadPanel").hidden = true;
+    render(); return;
+  }
+  let canWrite = null;
+  try { canWrite = user && user.can ? await user.can("data.write") : null; } catch (_) { canWrite = null; }
+  if (canWrite === false) $("uploadPanel").hidden = true;
+  db.collection("days").onSnapshot(snap => {
+    DATA.daily = []; DATA.missed = []; DATA.meta = {};
+    snap.docs.forEach(d => {
+      const v = d.data(); if (!v || !v.date) return;
+      (v.agents || []).forEach(a => DATA.daily.push(a));
+      (v.missed || []).forEach(m => DATA.missed.push(m));
+      DATA.meta[v.date] = { uploadedAt: v.uploadedAt, files: v.files || [] };
+    });
+    dates = [...new Set(DATA.daily.map(r => r.date))].sort();
+    if (pendingDate && dates.includes(pendingDate)) { state.date = pendingDate; pendingDate = null; }
+    if (!dates.length) {
+      $("emptyTitle").textContent = "No reports yet";
+      $("emptyText").textContent = "Drop the six call-platform exports in the upload box above to build the first day.";
+    }
+    fillDates(); render();
+  }, err => {
+    $("emptyTitle").textContent = "Saved reports couldn't load";
+    $("emptyText").textContent = err && err.code === "not_granted" ? "You don't have access to this dashboard's data. Ask the owner to share it with you." : "Reload the page to try again.";
+  });
+})();
+
+const rerender = () => dates.length && renderCharts(rowsFor(state.date, state.team), missedFor(state.date, state.team));
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender);
+new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
+
+</body>
+</html>
