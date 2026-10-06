@@ -10,7 +10,12 @@ const INGEST = (() => {
   const RENAME = { Lokesh: "Sam" };
   // Logins that are never agents: never shown anywhere (the AI bot and admin/system accounts such as ADMIN17326_HT).
   const EXCLUDE = new Set(["AI Bot", "ADMIN17326_HT"]);
-  const isExcluded = n => { const x = String(n || "").replace(/ \(unmapped\)$/, "").trim(); return EXCLUDE.has(x) || /^admin/i.test(x); };
+  // Single days to leave out for one agent (accidental logins). Format: "YYYY-MM-DD": ["Agent name"]
+  const IGNORE_DAYS = { "2026-10-04": ["Suganya"] };
+  const isExcluded = (n, date) => {
+    const x = String(n || "").replace(/ \(unmapped\)$/, "").trim();
+    return EXCLUDE.has(x) || /^admin/i.test(x) || (!!date && (IGNORE_DAYS[date] || []).includes(x));
+  };
   const EXT = { 3941001: "Hue1001", 3941002: "Hue1002", 3941003: "Hue1003", 3941004: "Hue1004", 3941005: "Hue1005",
     3941007: "Hue1007", 3941008: "Hue1008", 3941009: "Hue1009", 3941011: "Hue1010", 3941012: "Hue1011", 3941013: "Hue1012" };
   const nameTeam = hid => AGENTS[hid] || [`${hid} (unmapped)`, "Unmapped"];
@@ -96,6 +101,7 @@ const INGEST = (() => {
       const login = secs(r["Login Time"]);
       const activity = Object.values(n).reduce((a, b) => a + b, 0);
       if (isExcluded(raw) || isExcluded(hid) || (login === 0 && activity === 0)) return;
+      if (isExcluded(nameTeam(hid)[0], date)) return;
       const b = brk[raw] || r;
       const [agent, team] = nameTeam(hid);
       const fl = firstLogin[raw], lc = lastCall[raw];
@@ -112,7 +118,7 @@ const INGEST = (() => {
     const missed = [];
     if (files.missed) objects(parseCSV(files.missed.text)).forEach(r => {
       const hid = r["Member Name"]; const num = last10(r["Customer Phone"]); const t = r["Call Date"];
-      if (hid && isExcluded(hid)) return;
+      if (hid && (isExcluded(hid) || isExcluded(nameTeam(RENAME[hid] || hid)[0], date))) return;
       let agent, team, type, offered = "";
       if (hid) { [agent, team] = nameTeam(RENAME[hid] || hid); type = "Missed by agent"; }
       else {
@@ -120,7 +126,7 @@ const INGEST = (() => {
         const qs = qinfo[num];
         if (qs && qs.length) {
           const ids = String(qs[0]["Offered Agents"] || "").split(",").filter(Boolean);
-          offered = ids.map(i => EXT[i] ? nameTeam(EXT[i])[0] : i).filter(x => !isExcluded(x)).join(", ");
+          offered = ids.map(i => EXT[i] ? nameTeam(EXT[i])[0] : i).filter(x => !isExcluded(x, date)).join(", ");
           if (!offered) {
             const g = String(qs[0]["Queue Group Name"] || ""); const part = g.includes("-") ? g.split("-").slice(1).join("-") : g;
             offered = "Line group: " + part.split(",").map(x => AGENTS["Hue" + x] ? AGENTS["Hue" + x][0] : "Hue" + x).join(", ");
