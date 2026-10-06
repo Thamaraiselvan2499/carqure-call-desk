@@ -119,7 +119,7 @@ tbody tr:hover td { background: var(--line-soft); }
 #board tr.grp th.g-out { color: var(--s-missed); border-bottom: 2px solid var(--s-missed); }
 #board thead tr:nth-child(2) th { top: 26px; }
 th .th-sub { display: block; font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--accent); margin-top: 2px; }
-#board td:last-child { white-space: normal; min-width: 190px; }
+
 #board td:last-child .pill { margin: 1px 0; }
 .agent-id { display: none; }
 .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: 0.02em; }
@@ -366,7 +366,7 @@ td, td.num { font-size: 15px; }
       <h2>How each agent did <small>Targets: log in 7½ hours · AHT 2 minutes or less · break + lunch 1¼ hours or less</small></h2>
       <div class="cf-key">
         <span><i style="background:var(--good-bg)"></i><b>Green</b> = target reached</span>
-        <span><i style="background:var(--warn-bg)"></i><b>Amber</b> = close (for example 7 to 7½ hours logged in)</span>
+        <span><i style="background:var(--warn-bg)"></i><b>Amber</b> = close (for example AHT between 2 and 2½ minutes)</span>
         <span><i style="background:var(--bad-bg)"></i><b>Red</b> = needs attention</span>
         <span>Point at any column name to see what it means.</span>
       </div>
@@ -722,11 +722,11 @@ function renderAttn(rows, miss) {
 
 /* ---------- Scoreboard ---------- */
 const COLS = [
-  ["agent", "Agent", "l"], ["first", "Logged in at", ""], ["login", "Time logged in", ""],
+  ["agent", "Agent", "l"], ["first", "Logged in at", ""],
   ["inTot", "Received", "g-in"], ["inAns", "Answered", "g-in"], ["inMiss", "Missed", "g-in"],
   ["outTot", "Calls made", "g-out"], ["outCon", "Picked up", "g-out"], ["outNot", "No answer", "g-out"], ["connect", "Pick-up rate", "g-out"],
   ["handled", "Calls completed", ""], ["aht", "AHT", ""],
-  ["bl", "Break + lunch", ""], ["meeting", "Meeting", ""], ["status", "Result", "l"],
+  ["bl", "Break + lunch", ""], ["meeting", "Meeting", ""],
 ];
 const HELP = {
   agent: "The agent's name.", first: "The time the agent first logged in that day.",
@@ -761,7 +761,6 @@ function boardRow(r, ctx) {
   return `<tr>
     <td><span class="agent-name">${esc(r.agent)}</span></td>
     <td class="num">${r.first || "–"}</td>
-    <td class="num${off ? " c-bad" : " c-" + lr}"><span class="meter"><i><span class="${off ? "" : lr === "good" ? "" : lr}" style="width:${lp}%"></span></i>${hm(r.login)}</span></td>
     <td class="num g-in">${r.inTot}</td><td class="num g-in">${r.inAns}</td>
     <td class="num${heat}">${r.inMiss}</td>
     <td class="num g-out">${r.outTot}</td><td class="num g-out">${r.outCon}</td>
@@ -770,18 +769,16 @@ function boardRow(r, ctx) {
     <td class="num"><b>${r.handled}</b></td>
     <td class="num${r.handled ? " c-" + ragMax(r.aht, T.aht, T.ahtA) : ""}">${r.handled ? ms(r.aht) : "–"}</td>
     <td class="num${off ? "" : " c-" + ragMax(r.bl, T.bl, T.blA)}" title="Break ${hm(r.brk)} + lunch ${hm(r.lunch)}">${hm(r.bl)}</td>
-    <td class="num">${hm(r.meeting)}</td>
-    <td class="l">${statusPills(r)}</td></tr>`;
+    <td class="num">${hm(r.meeting)}</td></tr>`;
 }
 function totalRow(label, rows) {
   const a = agg(rows);
-  return `<tr class="total"><td>${label}</td><td></td><td class="num">${hm(a.login)}</td>
+  return `<tr class="total"><td>${label}</td><td></td>
     <td class="num">${a.inTot}</td><td class="num">${a.inAns}</td><td class="num">${a.inMiss}</td>
     <td class="num">${a.outTot}</td><td class="num">${a.outCon}</td><td class="num">${a.outNot}</td><td class="num">${pct(a.connect)}</td>
     <td class="num">${a.handled}</td>
     <td class="num">${ms(a.aht)}</td>
-    <td class="num">${hm(a.brk + a.lunch)}</td><td class="num">${hm(a.meeting)}</td>
-    <td class="l">${rows.filter(r => r.login >= T.login).length} of ${a.loggedIn} logged in 7½ hrs</td></tr>`;
+    <td class="num">${hm(a.brk + a.lunch)}</td><td class="num">${hm(a.meeting)}</td></tr>`;
 }
 function updatedAt(date) {
   const m = DATA.meta[date];
@@ -799,7 +796,7 @@ function renderBoard(rows) {
   }, []).map(x => x.g ? `<th colspan="${x.n}" class="${x.g}">${x.g === "g-in" ? "Incoming calls (customer called us)" : "Outgoing calls (we called the customer)"}</th>` : `<th colspan="${x.n}"></th>`).join("")}</tr>`;
   const head = `<thead>${grp}<tr>${COLS.map(([k, l, c]) => {
     const dir = s && s.k === k ? (s.d > 0 ? "▲" : "▼") : null;
-    const sub = k === "login" && asOf ? `<span class="th-sub">up to ${asOf}</span>` : "";
+    const sub = k === "first" && asOf ? `<span class="th-sub">data as of ${asOf}</span>` : "";
     return `<th class="${c}" title="${esc(HELP[k] || "")}">${k === "status" ? l : `<button type="button" data-k="${k}" ${dir ? `data-dir="${dir}"` : ""}>${l}</button>`}${sub}</th>`;
   }).join("")}</tr></thead>`;
   const sorter = arr => s ? [...arr].sort((a, b) => (a[s.k] > b[s.k] ? 1 : a[s.k] < b[s.k] ? -1 : 0) * s.d) : arr;
