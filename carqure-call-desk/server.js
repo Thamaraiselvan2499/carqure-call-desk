@@ -94,14 +94,24 @@ function seedFromUploads() {
   return out;
 }
 
+let lastLoadError = 0;
 async function load() {
   if (days) return days;
   if (!loading) loading = (async () => {
-    const stored = GH_TOKEN && GH_REPO ? await ghLoad() : diskLoad();
+    let stored = {};
+    try { stored = GH_TOKEN && GH_REPO ? await ghLoad() : diskLoad(); }
+    catch (e) {
+      // Keep the dashboard up: show the CSV days from the repo and retry storage on a later request.
+      console.error("storage read failed:", e.message);
+      lastLoadError = Date.now();
+      const seeded = seedFromUploads();
+      loading = null;
+      return seeded;
+    }
     days = { ...seedFromUploads(), ...stored };
     console.log(`loaded ${Object.keys(days).length} day(s) from ${GH_TOKEN ? "GitHub branch " + GH_BRANCH : DATA_DIR}`);
     return days;
-  })().catch(e => { loading = null; throw e; });
+  })();
   return loading;
 }
 
@@ -151,6 +161,7 @@ http.createServer(async (req, res) => {
       if (!validDay(d)) return send(res, 400, { error: "That doesn't look like a day's report." });
       const day = { date: d.date, agents: d.agents, missed: d.missed, files: (d.files || []).slice(0, 12).map(String), uploadedAt: new Date().toISOString() };
       await load();
+      if (!days) return send(res, 503, { error: "Saved reports couldn't be read from storage, so nothing was saved. Check GITHUB_TOKEN has Contents: Read and write, then try again." });
       saving = saving.then(() => (GH_TOKEN && GH_REPO ? ghSave(day) : diskSave(day)));
       await saving;
       days[day.date] = day;

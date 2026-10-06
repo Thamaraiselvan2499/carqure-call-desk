@@ -61,6 +61,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.45; }
 .wrap { max-width: 1320px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 48px; display: grid; gap: 18px; }
 @media (max-width: 520px) { .wrap { padding-inline: 16px; } }
@@ -179,20 +180,76 @@ footer { color: var(--ink-3); font-size: 12px; display: grid; gap: 4px; }
 .msg.good { background: var(--good-bg); color: var(--good); }
 .msg.bad { background: var(--bad-bg); color: var(--bad); }
 .msg.warn { background: var(--warn-bg); color: var(--warn); }
+.key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+.key-row label { font-weight: 700; }
+.key-row input { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 36px; flex: 1 1 180px; min-width: 0; }
+.key-row .ok { color: var(--good); font-weight: 700; }
+.key-row .no { color: var(--bad); font-weight: 700; }
+.viewbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.viewbar .seg button { font-size: 14px; padding: 8px 14px; }
+body.view-overall #uploadPanel, body.view-overall .day-only { display: none !important; }
+body:not(.view-overall) .overall-only { display: none !important; }
+.summary { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 120ch; }
+.summary li { line-height: 1.5; }
+.muted { color: var(--ink-3); }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 900px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.people { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.person { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel); }
+.person.good-edge { box-shadow: inset 3px 0 0 var(--good); }
+.person.warn-edge { box-shadow: inset 3px 0 0 var(--s-break); }
+.person.bad-edge { box-shadow: inset 3px 0 0 var(--bad); }
+.person.neutral-edge { box-shadow: inset 3px 0 0 var(--ink-3); }
+.p-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.p-head b { font-size: 14px; }
+.p-team { color: var(--ink-3); font-size: 12px; }
+.rank { font-family: var(--font-num); color: var(--ink-3); font-weight: 600; }
+.score-chip { margin-left: auto; font-family: var(--font-num); font-weight: 700; font-size: 13px; padding: 1px 8px; border-radius: 999px; }
+.score-chip.good { background: var(--good-bg); color: var(--good); }
+.score-chip.warn { background: var(--warn-bg); color: var(--warn); }
+.score-chip.bad { background: var(--bad-bg); color: var(--bad); }
+.score-chip.neutral { background: var(--line-soft); color: var(--ink-2); }
+.p-body { color: var(--ink-2); font-size: 13px; margin-top: 4px; }
+.needs { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 5px; font-size: 13px; color: var(--ink-2); }
+.score { display: inline-flex; align-items: center; gap: 8px; }
+.sbar { width: 80px; height: 8px; border-radius: 4px; background: var(--line); position: relative; overflow: hidden; display: inline-block; }
+.sbar i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+.sbar i.good { background: var(--good); } .sbar i.neutral { background: var(--s-handled); } .sbar i.warn { background: var(--s-break); } .sbar i.bad { background: var(--bad); }
+#oGrid th, #oGrid td { padding: 6px 7px; text-align: center; }
+#oGrid th:first-child, #oGrid td:first-child { text-align: left; }
+#oGrid th small { display: block; font-size: 9.5px; font-weight: 500; }
+#oGrid th.sun, #oGrid td.sun { background: var(--accent-soft); }
+#oGrid td.sunwork { background: var(--accent-soft); color: var(--accent); font-weight: 700; box-shadow: inset 0 0 0 2px var(--accent); }
+#oGrid td.absent { color: var(--ink-3); background: var(--line-soft); }
+.method summary { cursor: pointer; font-weight: 700; font-size: 13px; }
+.method p, .method li { font-size: 12.5px; color: var(--ink-2); }
 .empty-state { text-align: center; padding: 40px 16px; color: var(--ink-2); }
 .empty-state strong { display: block; font-size: 16px; color: var(--ink); margin-bottom: 4px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
 <div class="wrap">
+  <div class="viewbar">
+    <div class="seg" role="tablist" aria-label="View" id="viewSeg">
+      <button type="button" role="tab" data-view="daily" aria-pressed="true">Daily view</button>
+      <button type="button" role="tab" data-view="overall" aria-pressed="false">Overall performance</button>
+    </div>
+  </div>
+
   <header class="top">
     <div class="brand">
       <h1>CarQure Call Desk</h1>
       <p id="subtitle">Daily agent performance</p>
     </div>
     <div class="controls">
-      <label class="ctl-label" for="dateSel">Day</label>
-      <select id="dateSel"></select>
+      <label class="ctl-label day-only" for="dateSel">Day</label>
+      <select id="dateSel" class="day-only"></select>
+      <label class="ctl-label overall-only" for="periodSel">Period</label>
+      <select id="periodSel" class="overall-only">
+        <option value="week">Last 7 days</option>
+        <option value="month" selected>This month</option>
+        <option value="all">All days</option>
+      </select>
       <button type="button" class="btn" id="dlBtn" hidden>Download Excel</button>
       <div class="seg" role="group" aria-label="Team" id="teamSeg">
         <button type="button" data-team="All" aria-pressed="true">All teams</button>
@@ -302,6 +359,48 @@ footer { color: var(--ink-3); font-size: 12px; display: grid; gap: 4px; }
     <div class="missed-scroll tbl-wrap"><table id="missTbl"></table></div>
   </section>
 
+  </div>
+
+  <div id="overall" hidden style="display:grid; gap:18px">
+    <section class="kpis" id="oKpis" aria-label="Period headline numbers"></section>
+    <section class="panel">
+      <h2>Leadership summary <small>What the numbers say for this period</small></h2>
+      <ul class="summary" id="oSummary"></ul>
+    </section>
+    <section class="two">
+      <div class="panel"><h2>Performing well <small>Top scores, with what they do best</small></h2><ul class="people" id="oTop"></ul></div>
+      <div class="panel"><h2>Needs training <small>Specific skills to coach, most serious first</small></h2><ul class="people" id="oTrain"></ul></div>
+    </section>
+    <section class="panel">
+      <h2>Performance scorecard <small>Each agent compared with their own team</small></h2>
+      <div class="cf-key">
+        <span><i style="background:var(--good-bg)"></i><b>80+</b> Star performer</span>
+        <span><i style="background:var(--line-soft)"></i><b>65–79</b> Solid</span>
+        <span><i style="background:var(--warn-bg)"></i><b>50–64</b> Needs coaching</span>
+        <span><i style="background:var(--bad-bg)"></i><b>Under 50</b> Training plan</span>
+      </div>
+      <div class="tbl-wrap"><table id="oScore"></table></div>
+      <details class="method">
+        <summary>How the score works</summary>
+        <p>Out of 100, using only the days each agent logged in. Productivity and connect rate are compared with the agent's own team, so Feedback and Customer Champion agents aren't judged against each other.</p>
+        <ul>
+          <li><b>Productivity 30%</b>: calls handled per logged-in hour. The team median scores 75; a third above the median scores 100.</li>
+          <li><b>Login adherence 20%</b>: share of days at 7h 30m or more (amber days count half).</li>
+          <li><b>Outbound connect 15%</b>: connect % against the team's. Team level scores 75.</li>
+          <li><b>Missed inbound 15%</b>: 100 minus 10 points for each missed call per day.</li>
+          <li><b>AHT 10%</b>: share of days at 2:00 or under (2:00–2:30 counts half).</li>
+          <li><b>Break + lunch 10%</b>: share of days at 1h 15m or under (up to 1h 30m counts half).</li>
+        </ul>
+      </details>
+    </section>
+    <section class="two">
+      <div class="panel"><h2>Attendance <small>Working days only (Sundays excluded)</small></h2><div class="tbl-wrap"><table id="oAttend"></table></div></div>
+      <div class="panel"><h2>Sunday work <small>Logins on Sundays, for comp-off planning (6h or more = full day)</small></h2><div class="tbl-wrap" id="oSunday"></div></div>
+    </section>
+    <section class="panel">
+      <h2>Consistency grid <small>Calls handled each day · colour = login target (green met, amber 7h–7h 30m, red under 7h) · outlined = worked on Sunday</small></h2>
+      <div class="tbl-wrap"><table id="oGrid"></table></div>
+    </section>
   </div>
 
   <footer>
@@ -452,7 +551,7 @@ const DATA = { daily: [], missed: [], meta: {} };
 let db = null, downloads = null;
 const T = CONF.targets;
 const ORDER = CONF.order;
-const state = { date: null, team: "All", miss: "open", q: "", sort: null };
+const state = { date: null, team: "All", miss: "open", q: "", sort: null, view: "daily", period: "month" };
 const charts = {};
 
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -722,16 +821,238 @@ function renderMissed(miss) {
 
 function render() {
   const has = dates.length > 0;
-  document.getElementById("dash").hidden = !has;
+  const overall = state.view === "overall";
+  document.body.classList.toggle("view-overall", overall);
+  document.getElementById("overall").hidden = !has || !overall;
+  document.getElementById("dash").hidden = !has || overall;
   document.getElementById("emptyState").hidden = has;
   document.getElementById("dlBtn").hidden = !has || !downloads;
   if (!has) return;
+  if (overall) { document.getElementById("built").textContent = "Overall figures add up every saved day in the chosen period."; renderOverall(); return; }
   const meta = DATA.meta[state.date];
   document.getElementById("built").textContent = meta && meta.uploadedAt ? `Figures for this day are as of the upload at ${updatedAt(state.date)}; login time keeps growing until agents log off.` : "";
   const rows = rowsFor(state.date, state.team), miss = missedFor(state.date, state.team);
   const up = updatedAt(state.date);
   document.getElementById("subtitle").textContent = `${fmtDate(state.date)} · ${state.team === "All" ? "All teams" : state.team + " team"}${up ? ` · updated ${up}` : ""}`;
   renderKpis(rows, miss); renderAttn(rows, miss); renderBoard(rows); renderCharts(rows, miss); renderMissed(miss);
+}
+
+const $o = id => document.getElementById(id);
+/* ---------- Overall performance (leadership view) ---------- */
+const isSunday = d => new Date(d + "T00:00:00Z").getUTCDay() === 0;
+const dShort = d => new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
+const median = a => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const BANDS = [
+  { min: 80, label: "Star performer", cls: "good" },
+  { min: 65, label: "Solid", cls: "neutral" },
+  { min: 50, label: "Needs coaching", cls: "warn" },
+  { min: -1, label: "Training plan", cls: "bad" },
+];
+const bandOf = s => s == null ? { label: "No attendance", cls: "bad" } : BANDS.find(b => s >= b.min);
+const W = { prod: 0.30, conn: 0.15, login: 0.20, aht: 0.10, bl: 0.10, miss: 0.15 };
+
+function periodDates() {
+  if (!dates.length) return [];
+  const last = dates[dates.length - 1];
+  if (state.period === "all") return dates.slice();
+  if (state.period === "month") return dates.filter(d => d.slice(0, 7) === last.slice(0, 7));
+  const lt = new Date(last + "T00:00:00Z");
+  return dates.filter(d => (lt - new Date(d + "T00:00:00Z")) / 864e5 <= 6);
+}
+
+function overallStats(pd) {
+  const rows = DATA.daily.filter(r => pd.includes(r.date) && (state.team === "All" || r.team === state.team)).map(derive);
+  const by = new Map();
+  rows.forEach(r => { const e = by.get(r.agent) || { agent: r.agent, team: r.team, hue: r.hue, days: [] }; e.days.push(r); by.set(r.agent, e); });
+  const workDays = pd.filter(d => !isSunday(d));
+  const list = [...by.values()].map(e => {
+    const p = e.days.filter(r => r.login > 0), n = p.length;
+    const pw = p.filter(r => !isSunday(r.date)), nw = pw.length;
+    const s = k => p.reduce((a, r) => a + r[k], 0);
+    const login = s("login"), handled = s("handled"), talk = s("talk"), outTot = s("outTot"), outCon = s("outCon");
+    const inTot = e.days.reduce((a, r) => a + r.inTot, 0), inMiss = e.days.reduce((a, r) => a + r.inMiss, 0);
+    const credit = v => v === "good" ? 1 : v === "warn" ? 0.5 : 0;
+    const ahtDays = p.filter(r => r.handled);
+    const presentSet = new Set(p.map(r => r.date));
+    return {
+      ...e, n, login, handled, talk, outTot, outCon, inTot, inMiss,
+      brk: s("brk"), lunch: s("lunch"), notReady: s("notReady"),
+      rate: login ? handled / (login / 3600) : 0,
+      connect: outTot ? outCon / outTot : 0,
+      aht: handled ? talk / handled : 0,
+      missPerDay: n ? inMiss / n : inMiss,
+      nw,
+      loginMet: nw ? pw.reduce((a, r) => a + credit(ragMin(r.login, T.login, T.loginA)), 0) / nw : 0,
+      loginFull: pw.filter(r => r.login >= T.login).length,
+      ahtMet: ahtDays.length ? ahtDays.reduce((a, r) => a + credit(ragMax(r.aht, T.aht, T.ahtA)), 0) / ahtDays.length : 0,
+      blMet: nw ? pw.reduce((a, r) => a + credit(ragMax(r.bl, T.bl, T.blA)), 0) / nw : 0,
+      blOver: pw.filter(r => r.bl > T.bl).length,
+      nrShare: login ? s("notReady") / login : 0,
+      absent: workDays.filter(d => !presentSet.has(d)),
+      sundays: p.filter(r => isSunday(r.date)),
+    };
+  });
+  // team benchmarks: median handled/hour and team connect %
+  const bench = {};
+  [...new Set(list.map(a => a.team))].forEach(t => {
+    const m = list.filter(a => a.team === t && a.n > 0);
+    const ot = m.reduce((x, a) => x + a.outTot, 0), oc = m.reduce((x, a) => x + a.outCon, 0);
+    bench[t] = { rate: median(m.map(a => a.rate)), connect: ot ? oc / ot : 0, missPerDay: median(m.map(a => a.missPerDay)) };
+  });
+  list.forEach(a => {
+    const b = bench[a.team];
+    if (!a.n) { a.score = null; a.comp = null; }
+    else {
+      a.comp = {
+        prod: Math.min(100, b.rate ? a.rate / b.rate * 75 : 75),
+        conn: Math.min(100, b.connect ? a.connect / b.connect * 75 : 75),
+        login: a.nw ? a.loginMet * 100 : 50,
+        aht: a.handled ? a.ahtMet * 100 : 50,
+        bl: a.nw ? a.blMet * 100 : 50,
+        miss: Math.max(0, 100 - a.missPerDay * 10),
+      };
+      a.score = Math.round(Object.entries(W).reduce((x, [k, w]) => x + a.comp[k] * w, 0));
+    }
+    a.band = bandOf(a.score);
+    a.bench = b;
+    // training needs, most serious first
+    const t = [];
+    if (!a.n) t.push({ area: "Attendance", why: `Not logged in on any day in this period${a.inTot ? `, while ${a.inTot} calls were routed to them` : ""}.`, sev: 3 });
+    else {
+      if (a.nw && a.loginMet < 0.6) t.push({ area: "Shift adherence", why: `Met the 7h 30m login on ${a.loginFull} of ${a.nw} working day${a.nw === 1 ? "" : "s"}; average ${hm(a.days.filter(r => r.login > 0 && !isSunday(r.date)).reduce((x, r) => x + r.login, 0) / a.nw)} a day.`, sev: 3 });
+      if (a.missPerDay > T.miss) t.push({ area: "Answering discipline", why: `${a.missPerDay.toFixed(1)} inbound calls missed a day (target ${T.miss} or fewer). Stay in Ready while on shift.`, sev: a.missPerDay > T.missA ? 3 : 2 });
+      if (a.outTot >= 20 && a.connect < b.connect - 0.05) t.push({ area: "Call opening & pitch", why: `Outbound connect ${pct(a.connect)} vs team ${pct(b.connect)}. Review call timing and opening lines.`, sev: 2 });
+      if (a.handled && a.aht > T.aht) t.push({ area: "Call control", why: `AHT ${ms(a.aht)} vs 2:00 target. Coach on structured calls and closing.`, sev: a.aht > T.ahtA ? 3 : 2 });
+      if (b.rate && a.rate < b.rate * 0.8) t.push({ area: "Productivity", why: `${a.rate.toFixed(1)} calls handled per logged-in hour vs team ${b.rate.toFixed(1)}.`, sev: 2 });
+      if (a.nrShare > 0.3) t.push({ area: "Not Ready time", why: `${Math.round(a.nrShare * 100)}% of logged-in time in Not Ready (${hm(a.notReady)}).`, sev: 2 });
+      if (a.blOver) t.push({ area: "Break discipline", why: `Break + lunch over 1h 15m on ${a.blOver} day${a.blOver === 1 ? "" : "s"}.`, sev: 1 });
+    }
+    a.training = t.sort((x, y) => y.sev - x.sev);
+    // strengths for top performers
+    const st = [];
+    if (a.n) {
+      if (a.comp.prod >= 85) st.push(`${a.rate.toFixed(1)} calls handled per hour (team ${b.rate.toFixed(1)})`);
+      if (a.comp.conn >= 85 && a.outTot >= 20) st.push(`outbound connect ${pct(a.connect)} (team ${pct(b.connect)})`);
+      if (a.nw && a.loginMet >= 0.9) st.push(`met login target ${a.loginFull}/${a.nw} day${a.nw === 1 ? "" : "s"}`);
+      if (a.handled && a.aht <= T.aht) st.push(`AHT ${ms(a.aht)}`);
+      if (a.missPerDay <= 2) st.push(`only ${a.inMiss} missed inbound call${a.inMiss === 1 ? "" : "s"}`);
+    }
+    a.strengths = st;
+  });
+  list.sort((x, y) => (y.score ?? -1) - (x.score ?? -1));
+  return { rows, list, bench, workDays };
+}
+
+function renderOverall() {
+  const pd = periodDates();
+  const { rows, list, workDays } = overallStats(pd);
+  const miss = DATA.missed.filter(m => pd.includes(m.date) && (state.team === "All" || m.team === state.team || m.team === "Queue"));
+  const a = agg(rows);
+  const queue = miss.filter(m => m.type === "Unanswered in queue").length;
+  const openNums = new Set(miss.filter(m => !m.reached).map(m => m.pk || m.phone)).size;
+  const expected = list.length * workDays.length;
+  const presentWork = list.reduce((x, s) => x + s.days.filter(r => r.login > 0 && !isSunday(r.date)).length, 0);
+  const attendance = expected ? presentWork / expected : 0;
+  const sundayRows = rows.filter(r => r.login > 0 && isSunday(r.date));
+  const sundayPeople = new Set(sundayRows.map(r => r.agent));
+  const periodLabel = { week: "Last 7 days", month: "This month", all: "All days" }[state.period];
+  $o("subtitle").textContent = `${periodLabel}: ${pd.length ? `${dShort(pd[0])} – ${dShort(pd[pd.length - 1])}` : "no data"} · ${pd.length} day${pd.length === 1 ? "" : "s"} · ${state.team === "All" ? "All teams" : state.team + " team"}`;
+
+  // KPIs
+  const tiles = [
+    ["Days in report", pd.length, `${workDays.length} working · ${pd.length - workDays.length} Sunday`],
+    ["Calls handled", a.handled.toLocaleString("en-IN"), `${pct(a.total ? a.handled / a.total : 0)} of ${a.total.toLocaleString("en-IN")} calls`],
+    ["Avg handled / day", pd.length ? Math.round(a.handled / pd.length).toLocaleString("en-IN") : 0, "team total per day"],
+    ["Team AHT", ms(a.aht), a.aht > T.aht ? "above 2:00 target" : "within 2:00 target", a.aht > T.aht],
+    ["Outbound connect", pct(a.connect), "connected ÷ dialled"],
+    ["Missed inbound", a.inMiss, `${state.team === "All" ? `+ ${queue} unanswered in queue` : "rang an agent"}`, a.inMiss > 0],
+    ["Callbacks pending", openNums, "customers missed, never reached that day", openNums > 0],
+    ["Attendance", pct(attendance), `${presentWork} of ${expected} agent-days`, attendance < 0.9],
+    ["Sunday logins", sundayPeople.size, sundayRows.length ? `${sundayRows.length} agent-day${sundayRows.length === 1 ? "" : "s"}` : "no Sunday work"],
+  ];
+  $o("oKpis").innerHTML = tiles.map(([l, v, s, al]) => `<div class="kpi${al ? " alert" : ""}"><div class="lab">${l}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`).join("");
+
+  // Leadership summary
+  const scored = list.filter(s => s.score != null);
+  const top = scored.filter(s => s.score >= 65).slice(0, 3);
+  const plan = list.filter(s => s.score == null || s.score < 50);
+  const coach = list.filter(s => s.score != null && s.score >= 50 && s.score < 65);
+  const areaCount = {};
+  list.forEach(s => s.training.forEach(t => areaCount[t.area] = (areaCount[t.area] || 0) + 1));
+  const commonGap = Object.entries(areaCount).sort((x, y) => y[1] - x[1])[0];
+  const hrs = {}; miss.forEach(m => { const h = +m.time.slice(0, 2); hrs[h] = (hrs[h] || 0) + 1; });
+  const peak = Object.entries(hrs).sort((x, y) => y[1] - x[1])[0];
+  const hrLabel = h => `${h % 12 || 12}${h < 12 ? "am" : "pm"}`;
+  const bullets = [];
+  bullets.push(`<b>Output.</b> The ${state.team === "All" ? "team" : state.team + " team"} handled <b>${a.handled.toLocaleString("en-IN")}</b> of ${a.total.toLocaleString("en-IN")} calls (${pct(a.total ? a.handled / a.total : 0)}) at an AHT of <b>${ms(a.aht)}</b>. Outbound connect is <b>${pct(a.connect)}</b>, so most dialling effort doesn't reach a customer.`);
+  if (top.length) bullets.push(`<b>Who's carrying the floor.</b> ${top.map(s => `${esc(s.agent)} (${s.score})`).join(", ")}. Recognise them and use them as buddies for the coaching below.`);
+  if (plan.length || coach.length) bullets.push(`<b>Who needs support.</b> ${plan.length ? `Training plan: ${plan.map(s => esc(s.agent)).join(", ")}. ` : ""}${coach.length ? `Coaching: ${coach.map(s => esc(s.agent)).join(", ")}.` : ""}${commonGap ? ` The most common gap is <b>${commonGap[0].toLowerCase()}</b> (${commonGap[1]} agent${commonGap[1] === 1 ? "" : "s"}), which is worth one team session rather than one-to-ones.` : ""}`);
+  if (openNums) bullets.push(`<b>Revenue at risk.</b> ${openNums} customer${openNums === 1 ? "" : "s"} called, were missed, and weren't reached again that day${queue ? `, including ${queue} call${queue === 1 ? "" : "s"} no agent picked up from the queue` : ""}. Set a same-day callback rule.`);
+  if (peak) bullets.push(`<b>Staffing.</b> Missed calls peak around <b>${hrLabel(+peak[0])}–${hrLabel(+peak[0] + 1)}</b> (${peak[1]} calls). Keep breaks and meetings out of that hour.`);
+  const absentees = list.filter(s => s.absent.length);
+  bullets.push(`<b>Attendance.</b> ${pct(attendance)} of expected agent-days were worked${absentees.length ? `; absences: ${absentees.map(s => `${esc(s.agent)} (${s.absent.length})`).join(", ")}` : ", no absences"}. ${sundayPeople.size ? `${[...sundayPeople].map(esc).join(", ")} worked on Sunday, so plan comp-offs.` : "Nobody logged in on a Sunday."}`);
+  if (pd.length < 5) bullets.push(`<span class="muted">Based on ${pd.length} day${pd.length === 1 ? "" : "s"} of data, so treat rankings as early signals. They settle after about a week of uploads.</span>`);
+  $o("oSummary").innerHTML = bullets.map(b => `<li>${b}</li>`).join("");
+
+  // Top performers
+  $o("oTop").innerHTML = top.length ? top.map((s, i) => `
+    <li class="person good-edge">
+      <div class="p-head"><span class="rank">#${i + 1}</span><b>${esc(s.agent)}</b><span class="p-team">${esc(s.team)}</span><span class="score-chip good">${s.score}</span></div>
+      <div class="p-body">${s.strengths.length ? s.strengths.map(esc).join(" · ") : "Consistent across all measures."}</div>
+    </li>`).join("") : `<li class="empty">No one scores 65 or more yet.</li>`;
+
+  // Training needs
+  const topSet = new Set(top.map(s => s.agent));
+  const needs = list.filter(s => s.training.length && (s.score == null || s.score < 80) && (!topSet.has(s.agent) || s.training.some(t => t.sev >= 3)));
+  $o("oTrain").innerHTML = needs.length ? needs.map(s => `
+    <li class="person ${s.band.cls}-edge">
+      <div class="p-head"><b>${esc(s.agent)}</b><span class="p-team">${esc(s.team)}</span><span class="score-chip ${s.band.cls}">${s.score ?? "–"}</span></div>
+      <ul class="needs">${s.training.slice(0, 3).map(t => `<li><span class="pill ${t.sev >= 3 ? "bad" : t.sev === 2 ? "warn" : "neutral"}">${esc(t.area)}</span> ${esc(t.why)}</li>`).join("")}</ul>
+    </li>`).join("") : `<li class="empty">No training needs flagged for this period.</li>`;
+
+  // Scorecard
+  const comp = (v) => `<span class="cbar"><i style="width:${Math.round(v)}%"></i></span>`;
+  $o("oScore").innerHTML = `<thead><tr><th>#</th><th class="l">Agent</th><th class="l">Team</th><th>Days</th><th>Handled</th><th>Per hour</th><th>Connect %</th><th>AHT</th><th>Missed / day</th><th>Login met</th><th>B + L met</th><th class="l">Score</th><th class="l">Band</th></tr></thead><tbody>${list.map((s, i) => `
+    <tr><td class="num">${s.score == null ? "–" : i + 1}</td>
+    <td class="l"><span class="agent-name">${esc(s.agent)}</span></td><td class="l">${esc(s.team)}</td>
+    <td class="num">${s.nw}/${workDays.length}${s.sundays.length ? ` <span class="pill neutral">+${s.sundays.length} Sun</span>` : ""}</td>
+    <td class="num">${s.handled}</td>
+    <td class="num c-${s.n ? (s.rate >= s.bench.rate ? "good" : s.rate >= s.bench.rate * 0.8 ? "warn" : "bad") : "bad"}">${s.n ? s.rate.toFixed(1) : "–"}</td>
+    <td class="num ${s.outTot ? "c-" + (s.connect >= s.bench.connect ? "good" : s.connect >= s.bench.connect - 0.05 ? "warn" : "bad") : ""}">${s.outTot ? pct(s.connect) : "–"}</td>
+    <td class="num ${s.handled ? "c-" + ragMax(s.aht, T.aht, T.ahtA) : ""}">${s.handled ? ms(s.aht) : "–"}</td>
+    <td class="num c-${ragMax(s.missPerDay, T.miss, T.missA)}">${s.missPerDay.toFixed(1)}</td>
+    <td class="num ${s.nw ? "c-" + (s.loginMet >= 0.9 ? "good" : s.loginMet >= 0.6 ? "warn" : "bad") : ""}">${s.nw ? `${s.loginFull}/${s.nw}` : "–"}</td>
+    <td class="num ${s.nw ? "c-" + (s.blMet >= 0.9 ? "good" : s.blMet >= 0.6 ? "warn" : "bad") : ""}">${s.nw ? `${s.nw - s.blOver}/${s.nw}` : "–"}</td>
+    <td class="l"><span class="score"><span class="sbar"><i class="${s.band.cls}" style="width:${s.score ?? 0}%"></i></span><b>${s.score ?? "–"}</b></span></td>
+    <td class="l"><span class="pill ${s.band.cls}">${s.band.label}</span></td></tr>`).join("")}</tbody>`;
+
+  // Attendance
+  $o("oAttend").innerHTML = `<thead><tr><th class="l">Agent</th><th>Present</th><th>Avg login</th><th>Avg first login</th><th class="l">Absent on</th></tr></thead><tbody>${list.map(s => {
+    const firsts = s.days.filter(r => r.login > 0 && r.first).map(r => { const [h, m] = r.first.split(":").map(Number); return h * 60 + m; });
+    const af = firsts.length ? Math.round(firsts.reduce((x, y) => x + y, 0) / firsts.length) : null;
+    return `<tr><td class="l"><span class="agent-name">${esc(s.agent)}</span></td>
+      <td class="num c-${s.absent.length ? (s.absent.length > 1 ? "bad" : "warn") : "good"}">${workDays.length - s.absent.length}/${workDays.length}</td>
+      <td class="num">${s.n ? hm(s.login / s.n) : "–"}</td>
+      <td class="num">${af == null ? "–" : `${String(Math.floor(af / 60)).padStart(2, "0")}:${String(af % 60).padStart(2, "0")}`}</td>
+      <td class="l">${s.absent.length ? s.absent.map(dShort).join(", ") : "–"}</td></tr>`;
+  }).join("")}</tbody>`;
+
+  // Sunday work
+  const sundays = pd.filter(isSunday);
+  $o("oSunday").innerHTML = sundayRows.length ? `<table><thead><tr><th class="l">Sunday</th><th class="l">Agent</th><th>Login</th><th>Handled</th><th class="l">Comp-off</th></tr></thead><tbody>${sundayRows.sort((x, y) => x.date.localeCompare(y.date) || ORDER.indexOf(x.agent) - ORDER.indexOf(y.agent)).map(r => `
+      <tr><td class="l">${dShort(r.date)}</td><td class="l"><span class="agent-name">${esc(r.agent)}</span></td><td class="num">${hm(r.login)}</td><td class="num">${r.handled}</td>
+      <td class="l"><span class="pill ${r.login >= 6 * 3600 ? "warn" : "neutral"}">${r.login >= 6 * 3600 ? "Full day due" : "Half day due"}</span></td></tr>`).join("")}</tbody></table>`
+    : `<p class="empty">${sundays.length ? `No one logged in on ${sundays.length === 1 ? "Sunday " + dShort(sundays[0]) : `the ${sundays.length} Sundays in this period`}.` : "No Sundays in this period yet. Sunday logins will appear here with hours and calls, so comp-offs can be planned."}</p>`;
+
+  // Consistency grid
+  const gd = pd.slice(-31);
+  $o("oGrid").innerHTML = `<thead><tr><th class="l">Agent</th>${gd.map(d => `<th class="${isSunday(d) ? "sun" : ""}">${new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit" })}<small>${new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short" })}</small></th>`).join("")}</tr></thead><tbody>${list.map(s => `
+    <tr><td class="l"><span class="agent-name">${esc(s.agent)}</span></td>${gd.map(d => {
+      const r = s.days.find(x => x.date === d);
+      if (!r || r.login === 0) return `<td class="num ${isSunday(d) ? "sun" : "absent"}" title="${dShort(d)}: not logged in">${isSunday(d) ? "" : "–"}</td>`;
+      const g = isSunday(d) ? "sunwork" : "c-" + ragMin(r.login, T.login, T.loginA);
+      return `<td class="num ${g}" title="${dShort(d)}: ${r.handled} handled · login ${hm(r.login)} · AHT ${r.handled ? ms(r.aht) : "–"}">${r.handled}</td>`;
+    }).join("")}</tr>`).join("")}</tbody>`;
 }
 
 /* ---------- Controls ---------- */
@@ -750,6 +1071,9 @@ function segWire(id, key, attr) {
   }));
 }
 segWire("teamSeg", "team", "team");
+segWire("viewSeg", "view", "view");
+document.getElementById("periodSel").addEventListener("change", e => { state.period = e.target.value; render(); });
+if (location.hash === "#overall") { state.view = "overall"; document.querySelectorAll("#viewSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === "overall"))); }
 segWire("missSeg", "miss", "f");
 document.getElementById("missSearch").addEventListener("input", e => { state.q = e.target.value; renderMissed(missedFor(state.date, state.team)); });
 
@@ -814,7 +1138,9 @@ async function buildReport() {
     say("good", `Report for <b>${fmtDate(day.date)}</b> is ready: ${day.agents.length} agents, ${day.missed.length} missed calls.${replacing ? " It replaced the earlier upload for that day." : ""}`);
   } catch (e) {
     $("buildBtn").disabled = false;
-    const why = e && e.code === "not_granted" ? "You have view-only access, so you can't add reports. Ask the owner for edit access."
+    const why = e && e.code === "bad_key" ? "The upload key is wrong. Check it and try again."
+      : e && e.code === "server" ? esc(e.message)
+      : e && e.code === "not_granted" ? "You have view-only access, so you can't add reports. Ask the owner for edit access."
       : e && (e.code === "resource_exhausted" || e.code === "quota_exceeded") ? "The report is too large to save. Tell Claude so the storage can be split."
       : `Saving failed${e && e.message ? `: ${esc(e.message)}` : ""}. Try again in a moment.`;
     say("bad", why);
@@ -892,6 +1218,59 @@ $("dlBtn").addEventListener("click", async () => {
 function alertMsg(t) { $("emptyText"); say("bad", t); }
 
 /* Connect to the shared store */
+/* Render build: data lives on the server at api/days; uploads need the upload key */
+const KEY_STORE = "carqure-upload-key";
+const getKey = () => { const el = document.getElementById("upKey"); return el ? el.value.trim() : ""; };
+function applyDays(list) {
+  DATA.daily = []; DATA.missed = []; DATA.meta = {};
+  list.forEach(v => { v.agents.forEach(a => DATA.daily.push(a)); v.missed.forEach(m => DATA.missed.push(m)); DATA.meta[v.date] = { uploadedAt: v.uploadedAt, files: v.files || [] }; });
+  dates = [...new Set(DATA.daily.map(r => r.date))].sort();
+  if (pendingDate && dates.includes(pendingDate)) { state.date = pendingDate; pendingDate = null; }
+  if (!dates.length) { $("emptyTitle").textContent = "No reports yet"; $("emptyText").textContent = "Drop the six call-platform exports in the upload box above to build the first day."; }
+  fillDates(); render();
+}
+async function refreshServer() {
+  const k = getKey();
+  const res = await fetch("api/days", { cache: "no-store", headers: k ? { "x-upload-key": k } : {} });
+  if (!res.ok) throw new Error("status " + res.status);
+  applyDays(await res.json());
+}
+async function loadServer() {
+  downloads = { save: async ({ filename, data }) => {
+    const url = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000); return { status: "saved" };
+  } };
+  const row = document.createElement("div");
+  row.className = "key-row";
+  row.innerHTML = `<label for="upKey">Upload key</label><input type="password" id="upKey" autocomplete="current-password" placeholder="Only needed to upload"><span id="keyState"></span>`;
+  $("uploadPanel").querySelector(".up-actions").before(row);
+  try { $("upKey").value = localStorage.getItem(KEY_STORE) || ""; } catch (_) {}
+  let t;
+  $("upKey").addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      const k = getKey();
+      try { k ? localStorage.setItem(KEY_STORE, k) : localStorage.removeItem(KEY_STORE); } catch (_) {}
+      if (!k) { $("keyState").textContent = ""; return; }
+      const r = await fetch("api/check-key", { method: "POST", headers: { "x-upload-key": k } }).catch(() => null);
+      $("keyState").textContent = r && r.ok ? "✓ Key accepted" : "Key not recognised";
+      $("keyState").className = r && r.ok ? "ok" : "no";
+      if (r && r.ok) refreshServer().catch(() => {});
+    }, 400);
+  });
+  if (getKey()) $("upKey").dispatchEvent(new Event("input"));
+  db = { collection: () => ({ doc: () => ({ set: async v => {
+    const res = await fetch("api/days", { method: "POST", headers: { "content-type": "application/json", "x-upload-key": getKey() }, body: JSON.stringify(v) });
+    if (res.status === 401) throw { code: "bad_key" };
+    if (!res.ok) { let m = "Saving failed."; try { m = (await res.json()).error || m; } catch (_) {} throw { code: "server", message: m }; }
+    await refreshServer();
+  } }) }) };
+  try { await refreshServer(); }
+  catch (e) { $("emptyTitle").textContent = "Reports couldn't load"; $("emptyText").textContent = "The server didn't answer. If it was asleep, wait 30 seconds and reload."; }
+  setInterval(() => { if (document.visibilityState === "visible") refreshServer().catch(() => {}); }, 120000);
+}
+
 /* GitHub Pages build: data comes from data/days.json, built by the repo's workflow */
 async function loadStatic() {
   downloads = { save: async ({ filename, data }) => {
@@ -917,6 +1296,7 @@ async function loadStatic() {
 }
 
 (async () => {
+  if (CONF.mode === "server") return loadServer();
   if (CONF.static) return loadStatic();
   const use = n => (window.claude && window.claude.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
   const [dbNs, dl, user] = await Promise.all([use("db"), use("downloads"), use("user")]);
