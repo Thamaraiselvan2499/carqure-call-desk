@@ -31,6 +31,6 @@ for (const date of Object.keys(byDate).sort()) {
   console.log(`built ${date}: ${day.agents.length} agents, ${day.missed.length} missed calls (${Object.keys(set).length}/6 files)`);
 }
 fs.mkdirSync(path.join(ROOT, "site", "data"), { recursive: true });
-fs.copyFileSync(path.join(ROOT, "index.html"), path.join(ROOT, "site", "index.html"));
+fs.copyFileSync(path.join(ROOT, "index-pages.html"), path.join(ROOT, "site", "index.html"));
 fs.writeFileSync(path.join(ROOT, "site", "data", "days.json"), JSON.stringify(days));
 console.log(`site ready: ${days.length} day(s)`);
