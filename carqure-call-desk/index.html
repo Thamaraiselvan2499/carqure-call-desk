@@ -269,8 +269,8 @@ td, td.num { font-size: 15px; }
 <div class="wrap">
   <div class="viewbar">
     <div class="seg" role="tablist" aria-label="View" id="viewSeg">
-      <button type="button" role="tab" data-view="daily" aria-pressed="true">One day</button>
-      <button type="button" role="tab" data-view="overall" aria-pressed="false">Overall (many days)</button>
+      <button type="button" role="tab" data-view="daily" aria-pressed="true">Daily view</button>
+      <button type="button" role="tab" data-view="overall" aria-pressed="false">Overall performance</button>
     </div>
   </div>
 
@@ -313,7 +313,7 @@ td, td.num { font-size: 15px; }
         <dt>Pick-up rate</dt><dd>Out of every 100 outgoing calls, how many the customer picked up. 41% means about 41 out of 100.</dd>
       </dl>
       <dl>
-        <dt>Average call time</dt><dd>How long a completed call lasts on average. Target: 2 minutes or less.</dd>
+        <dt>AHT (Average Handle Time)</dt><dd>How long a completed call lasts on average. Target: 2 minutes or less.</dd>
         <dt>Time logged in</dt><dd>How long the agent was signed in to the calling system. Target: 7½ hours a day.</dd>
         <dt>Break + lunch</dt><dd>Break time and lunch time added together. Limit: 1¼ hours (75 minutes) a day.</dd>
         <dt>Not ready</dt><dd>Logged in but set to "away", so no calls come to them.</dd>
@@ -363,7 +363,7 @@ td, td.num { font-size: 15px; }
       <ul class="attn" id="attn"></ul>
     </div>
     <div class="panel">
-      <h2>How each agent did <small>Targets: log in 7½ hours · average call 2 minutes or less · break + lunch 1¼ hours or less</small></h2>
+      <h2>How each agent did <small>Targets: log in 7½ hours · AHT 2 minutes or less · break + lunch 1¼ hours or less</small></h2>
       <div class="cf-key">
         <span><i style="background:var(--good-bg)"></i><b>Green</b> = target reached</span>
         <span><i style="background:var(--warn-bg)"></i><b>Amber</b> = close (for example 7 to 7½ hours logged in)</span>
@@ -386,7 +386,7 @@ td, td.num { font-size: 15px; }
       <div class="chart-box"><canvas id="cLogin" aria-label="Login hours by agent"></canvas></div>
     </div>
     <div class="panel">
-      <h2>Average call time (target: 2 minutes or less)</h2>
+      <h2>AHT (target: 2 minutes or less)</h2>
       <div class="legend"><span><i style="background:var(--good)"></i>2 minutes or less</span><span><i style="background:var(--s-break)"></i>2 to 2½ minutes</span><span><i style="background:var(--bad)"></i>Over 2½ minutes</span><span><i class="line"></i>2:00 target</span></div>
       <div class="chart-box"><canvas id="cAht" aria-label="Average handle time by agent"></canvas></div>
     </div>
@@ -457,7 +457,7 @@ td, td.num { font-size: 15px; }
           <li><b>20 marks: logging in 7½ hours.</b> Full marks if they do it every day.</li>
           <li><b>15 marks: pick-up rate.</b> How many of their calls customers picked up, compared with the team.</li>
           <li><b>15 marks: not missing customer calls.</b> Marks go down for each call missed per day.</li>
-          <li><b>10 marks: short calls.</b> Average call of 2 minutes or less.</li>
+          <li><b>10 marks: AHT.</b> AHT of 2 minutes or less.</li>
           <li><b>10 marks: breaks within the limit.</b> Break + lunch of 1¼ hours or less.</li>
         </ul>
       </details>
@@ -474,7 +474,7 @@ td, td.num { font-size: 15px; }
 
   <footer>
     <div>The numbers come from the 6 report files downloaded from the calling system each day.</div>
-    <div>Targets: log in 7½ hours a day · average call 2 minutes or less · break + lunch 1¼ hours or less. Open "How to read this page" at the top for the meaning of each word. <span id="built"></span></div>
+    <div>Targets: log in 7½ hours a day · AHT 2 minutes or less · break + lunch 1¼ hours or less. Open "How to read this page" at the top for the meaning of each word. <span id="built"></span></div>
   </footer>
 </div>
 
@@ -683,7 +683,7 @@ function renderKpis(rows, miss) {
     ["Outgoing: no answer", n(a.outNot), `out of ${n(a.outTot)} calls made · ${n(a.outCon)} picked up`, false, "Our agent called, but the customer did not pick up."],
     ...(state.team === "All" ? [["Nobody answered", n(queue), "customer waited in line, no agent picked up", queue > 0, "These calls never reached any agent."]] : []),
     ["Customers to call back", n(open), "missed and not called back today", open > 0, "Different customers whose call we missed and who were not reached later the same day."],
-    ["Average call time", ms(a.aht), ahtOver ? `${ahtOver} agent${ahtOver === 1 ? " is" : "s are"} over the 2-minute target` : "within the 2-minute target", a.aht > T.aht, "Average length of a completed call, in minutes:seconds."],
+    ["AHT", ms(a.aht), ahtOver ? `${ahtOver} agent${ahtOver === 1 ? " is" : "s are"} over the 2-minute target` : "within the 2-minute target", a.aht > T.aht, "Average length of a completed call, in minutes:seconds."],
     ["Logged in 7½ hours", `${metLogin} of ${a.loggedIn}`, `${a.n - a.loggedIn} did not log in`, metLogin < a.loggedIn, "How many agents reached the 7½-hour login target."],
     ["Break + lunch over limit", `${blOver} of ${a.loggedIn}`, `limit 1¼ hours · team total ${hm(a.brk + a.lunch)}`, blOver > 0, "Agents whose break and lunch together went over 75 minutes."],
   ];
@@ -700,7 +700,7 @@ function renderAttn(rows, miss) {
   const bl = rows.filter(r => r.login > 0 && r.brk + r.lunch > T.bl);
   if (bl.length) items.push(["warn", "!", `<b>Break + lunch went over 1¼ hours:</b> ${bl.map(r => `${esc(r.agent)} (${hm(r.brk + r.lunch)})`).join(", ")}.`]);
   const ahtHi = rows.filter(r => r.handled && r.aht > T.aht);
-  if (ahtHi.length) items.push(["warn", "!", `<b>Calls taking too long (over 2 minutes on average):</b> ${ahtHi.map(r => `${esc(r.agent)} (${ms(r.aht)})`).join(", ")}.`]);
+  if (ahtHi.length) items.push(["warn", "!", `<b>AHT above 2 minutes:</b> ${ahtHi.map(r => `${esc(r.agent)} (${ms(r.aht)})`).join(", ")}.`]);
   const top = rows.filter(r => r.login > 0).sort((a, b) => b.inMiss - a.inMiss)[0];
   if (top && top.inMiss >= 10) {
     const mine = miss.filter(m => m.agent === top.agent);
@@ -725,7 +725,7 @@ const COLS = [
   ["agent", "Agent", "l"], ["first", "Logged in at", ""], ["login", "Time logged in", ""],
   ["inTot", "Received", "g-in"], ["inAns", "Answered", "g-in"], ["inMiss", "Missed", "g-in"],
   ["outTot", "Calls made", "g-out"], ["outCon", "Picked up", "g-out"], ["outNot", "No answer", "g-out"], ["connect", "Pick-up rate", "g-out"],
-  ["handled", "Calls completed", ""], ["aht", "Average call time", ""],
+  ["handled", "Calls completed", ""], ["aht", "AHT", ""],
   ["bl", "Break + lunch", ""], ["meeting", "Meeting", ""], ["status", "Result", "l"],
 ];
 const HELP = {
@@ -735,7 +735,7 @@ const HELP = {
   outTot: "Calls this agent made to customers.", outCon: "Calls where the customer picked up.", outNot: "Calls where the customer did not pick up.",
   connect: "Out of every 100 calls made, how many the customer picked up.",
   handled: "Calls where the agent spoke to the customer (answered + picked up).",
-  aht: "Average length of a completed call (minutes:seconds). Target: 2:00 or less.",
+  aht: "AHT (Average Handle Time): average length of a completed call (minutes:seconds). Target: 2:00 or less.",
   brk: "Time on break.", lunch: "Time on lunch.", bl: "Break and lunch added together. Limit: 1¼ hours. Point at a number to see break and lunch separately.",
   meeting: "Time in meetings.", status: "What went well or what needs fixing.",
 };
@@ -747,7 +747,7 @@ function statusPills(r) {
   const lr = ragMin(r.login, T.login, T.loginA);
   if (lr !== "good") p.push(`<span class="pill ${lr}">Logged in ${hm(T.login - r.login)} less than 7½ hrs</span>`);
   const ar = r.handled ? ragMax(r.aht, T.aht, T.ahtA) : "good";
-  if (ar !== "good") p.push(`<span class="pill ${ar}">Calls ${Math.round(r.aht - T.aht)} sec too long</span>`);
+  if (ar !== "good") p.push(`<span class="pill ${ar}">AHT ${Math.round(r.aht - T.aht)} sec over</span>`);
   const br = ragMax(r.bl, T.bl, T.blA);
   if (br !== "good") p.push(`<span class="pill ${br}">Break ${Math.round((r.bl - T.bl) / 60)} min over</span>`);
   return p.length ? p.join(" ") : `<span class="pill good">All targets reached</span>`;
@@ -857,7 +857,7 @@ function renderCharts(rows, miss) {
 
   const ao = baseOpts(); ao.plugins.tooltip = { ...ao.plugins.tooltip, ...tipT(v => ms(v)) };
   ao.scales.y.ticks.callback = v => ms(v);
-  mk("cAht", { data: { labels: names, datasets: [barDs("Average call time", rows.map(r => Math.round(r.aht)), rows.map(r => ({ good: css("--good"), warn: css("--s-break"), bad: css("--bad") })[ragMax(r.aht, T.aht, T.ahtA)])), lineDs("Target", T.aht, n)] }, options: ao });
+  mk("cAht", { data: { labels: names, datasets: [barDs("AHT", rows.map(r => Math.round(r.aht)), rows.map(r => ({ good: css("--good"), warn: css("--s-break"), bad: css("--bad") })[ragMax(r.aht, T.aht, T.ahtA)])), lineDs("Target", T.aht, n)] }, options: ao });
 
   const bo = baseOpts(); bo.plugins.tooltip = { ...bo.plugins.tooltip, ...tipT(v => v + " min"),
     footer: items => { const i = items[0].dataIndex, r = rows[i]; return `Total ${hm(r.bl)}${r.bl > T.bl ? " · over target" : ""}`; } };
@@ -1028,7 +1028,7 @@ function overallStats(pd) {
       if (a.nw && a.loginMet < 0.6) t.push({ area: "Log in the full 7½ hours", why: `Logged in 7½ hours on ${a.loginFull} of ${a.nw} working day${a.nw === 1 ? "" : "s"}; average ${hm(a.days.filter(r => r.login > 0 && !isSunday(r.date)).reduce((x, r) => x + r.login, 0) / a.nw)} a day.`, sev: 3 });
       if (a.missPerDay > T.miss) t.push({ area: "Answer incoming calls", why: `Missed ${a.missPerDay.toFixed(1)} customer calls a day (should be ${T.miss} or fewer). Stay "Ready" during the shift.`, sev: a.missPerDay > T.missA ? 3 : 2 });
       if (a.outTot >= 20 && a.connect < b.connect - 0.05) t.push({ area: "Get customers to pick up and talk", why: `Only ${pct(a.connect)} of their calls were picked up (team: ${pct(b.connect)}). Try better calling times and a stronger opening line.`, sev: 2 });
-      if (a.handled && a.aht > T.aht) t.push({ area: "Keep calls short", why: `Average call is ${ms(a.aht)} minutes (target 2:00). Practise keeping calls to the point.`, sev: a.aht > T.ahtA ? 3 : 2 });
+      if (a.handled && a.aht > T.aht) t.push({ area: "Reduce AHT", why: `AHT is ${ms(a.aht)} (target 2:00). Practise keeping calls to the point.`, sev: a.aht > T.ahtA ? 3 : 2 });
       if (b.rate && a.rate < b.rate * 0.8) t.push({ area: "Complete more calls per hour", why: `Completes ${a.rate.toFixed(1)} calls an hour (team: ${b.rate.toFixed(1)}).`, sev: 2 });
       if (a.nrShare > 0.3) t.push({ area: "Less time set to away", why: `Was set to "away" for ${Math.round(a.nrShare * 100)}% of logged-in time (${hm(a.notReady)}).`, sev: 2 });
       if (a.blOver) t.push({ area: "Keep breaks within the limit", why: `Break + lunch went over 1¼ hours on ${a.blOver} day${a.blOver === 1 ? "" : "s"}.`, sev: 1 });
@@ -1040,7 +1040,7 @@ function overallStats(pd) {
       if (a.comp.prod >= 85) st.push(`completes ${a.rate.toFixed(1)} calls an hour (team: ${b.rate.toFixed(1)})`);
       if (a.comp.conn >= 85 && a.outTot >= 20) st.push(`${pct(a.connect)} of their calls picked up (team: ${pct(b.connect)})`);
       if (a.nw && a.loginMet >= 0.9) st.push(`logged in 7½ hours on ${a.loginFull} of ${a.nw} day${a.nw === 1 ? "" : "s"}`);
-      if (a.handled && a.aht <= T.aht) st.push(`short calls (${ms(a.aht)} on average)`);
+      if (a.handled && a.aht <= T.aht) st.push(`AHT ${ms(a.aht)}`);
       if (a.missPerDay <= 2) st.push(`missed only ${a.inMiss} customer call${a.inMiss === 1 ? "" : "s"}`);
     }
     a.strengths = st;
@@ -1070,7 +1070,7 @@ function renderOverall() {
     ["Days in this report", pd.length, `${workDays.length} working day${workDays.length === 1 ? "" : "s"} · ${pd.length - workDays.length} Sunday`, false, "How many days of reports are counted here."],
     ["Calls completed", n(a.handled), `spoke to the customer · out of ${n(a.total)} calls`, false, "Incoming calls answered + outgoing calls the customer picked up."],
     ["Calls completed per day", pd.length ? n(Math.round(a.handled / pd.length)) : 0, "whole team, on average", false, "Calls completed divided by the number of days."],
-    ["Average call time", ms(a.aht), a.aht > T.aht ? "over the 2-minute target" : "within the 2-minute target", a.aht > T.aht, "Average length of a completed call, in minutes:seconds."],
+    ["AHT", ms(a.aht), a.aht > T.aht ? "over the 2-minute target" : "within the 2-minute target", a.aht > T.aht, "Average length of a completed call, in minutes:seconds."],
     ["Incoming calls missed", n(a.inMiss), `out of ${n(a.inTot)} incoming${state.team === "All" && queue ? ` · ${n(queue)} more nobody answered` : ""}`, a.inMiss > 0, "Customer calls that rang an agent but were not answered."],
     ["Outgoing: no answer", n(a.outNot), `out of ${n(a.outTot)} calls made · ${pct(a.connect)} picked up`, false, "Calls our agents made where the customer did not pick up."],
     ["Customers to call back", n(openNums), "missed and not called back that day", openNums > 0, "Different customers whose call we missed and who were not reached later the same day."],
@@ -1091,7 +1091,7 @@ function renderOverall() {
   const peak = Object.entries(hrs).sort((x, y) => y[1] - x[1])[0];
   const hrLabel = h => `${h % 12 || 12}${h < 12 ? "am" : "pm"}`;
   const bullets = [];
-  bullets.push(`<b>Work done.</b> The ${state.team === "All" ? "team" : state.team + " team"} spoke to customers on <b>${a.handled.toLocaleString("en-IN")}</b> out of ${a.total.toLocaleString("en-IN")} calls (${pct(a.total ? a.handled / a.total : 0)}). An average call lasted <b>${ms(a.aht)}</b> minutes. Customers picked up only <b>${pct(a.connect)}</b> of the calls we made, so most of our calling did not reach anyone.`);
+  bullets.push(`<b>Work done.</b> The ${state.team === "All" ? "team" : state.team + " team"} spoke to customers on <b>${a.handled.toLocaleString("en-IN")}</b> out of ${a.total.toLocaleString("en-IN")} calls (${pct(a.total ? a.handled / a.total : 0)}). AHT was <b>${ms(a.aht)}</b>. Customers picked up only <b>${pct(a.connect)}</b> of the calls we made, so most of our calling did not reach anyone.`);
   if (top.length) bullets.push(`<b>Best performers.</b> ${top.map(s => `${esc(s.agent)} (score ${s.score})`).join(", ")}. Appreciate them, and pair them with the agents who need help.`);
   if (plan.length || coach.length) bullets.push(`<b>Who needs help.</b> ${plan.length ? `Needs training: ${plan.map(s => esc(s.agent)).join(", ")}. ` : ""}${coach.length ? `Needs coaching: ${coach.map(s => esc(s.agent)).join(", ")}.` : ""}${commonGap ? ` The most common problem is <b>${commonGap[0].toLowerCase()}</b> (${commonGap[1]} agent${commonGap[1] === 1 ? "" : "s"}), so one session for the whole team will help.` : ""}`);
   if (openNums) bullets.push(`<b>Customers we may lose.</b> ${openNums} customer${openNums === 1 ? "" : "s"} called us, were missed, and were not called back the same day${queue ? ` (${queue} call${queue === 1 ? "" : "s"} were never answered by anyone)` : ""}. Make a rule: every missed customer gets a call back the same day.`);
@@ -1119,7 +1119,7 @@ function renderOverall() {
 
   // Scorecard
   const comp = (v) => `<span class="cbar"><i style="width:${Math.round(v)}%"></i></span>`;
-  $o("oScore").innerHTML = `<thead><tr><th title="Rank by score">Rank</th><th class="l">Agent</th><th class="l" title="Out of 100. Higher is better">Score</th><th class="l">Grade</th><th title="Days worked out of working days (Mon–Sat)">Days worked</th><th title="Calls where the agent spoke to the customer">Calls completed</th><th title="Calls completed for every hour logged in">Calls per hour</th><th title="Incoming calls missed out of incoming calls received">Incoming missed</th><th title="Outgoing calls with no answer out of calls made">Outgoing: no answer</th><th title="Out of every 100 calls made, how many were picked up">Pick-up rate</th><th title="Average length of a completed call. Target 2:00">Average call time</th><th title="Incoming calls missed per day worked. Target 5 or fewer">Missed per day</th><th title="Days with 7½ hours logged in">Full-login days</th><th title="Days with break + lunch within 1¼ hours">Break within limit</th></tr></thead><tbody>${list.map((s, i) => `
+  $o("oScore").innerHTML = `<thead><tr><th title="Rank by score">Rank</th><th class="l">Agent</th><th class="l" title="Out of 100. Higher is better">Score</th><th class="l">Grade</th><th title="Days worked out of working days (Mon–Sat)">Days worked</th><th title="Calls where the agent spoke to the customer">Calls completed</th><th title="Calls completed for every hour logged in">Calls per hour</th><th title="Incoming calls missed out of incoming calls received">Incoming missed</th><th title="Outgoing calls with no answer out of calls made">Outgoing: no answer</th><th title="Out of every 100 calls made, how many were picked up">Pick-up rate</th><th title="AHT (Average Handle Time): average length of a completed call. Target 2:00">AHT</th><th title="Incoming calls missed per day worked. Target 5 or fewer">Missed per day</th><th title="Days with 7½ hours logged in">Full-login days</th><th title="Days with break + lunch within 1¼ hours">Break within limit</th></tr></thead><tbody>${list.map((s, i) => `
     <tr><td class="num">${s.score == null ? "–" : i + 1}</td>
     <td class="l"><span class="agent-name">${esc(s.agent)}</span><br><span class="of">${esc(s.team)} team</span></td>
     <td class="l"><span class="score"><span class="sbar"><i class="${s.band.cls}" style="width:${s.score ?? 0}%"></i></span><b>${s.score ?? "–"}</b></span></td>
@@ -1161,7 +1161,7 @@ function renderOverall() {
       const r = s.days.find(x => x.date === d);
       if (!r || r.login === 0) return `<td class="num ${isSunday(d) ? "sun" : "absent"}" title="${dShort(d)}: not logged in">${isSunday(d) ? "" : "–"}</td>`;
       const g = isSunday(d) ? "sunwork" : "c-" + ragMin(r.login, T.login, T.loginA);
-      return `<td class="num ${g}" title="${dShort(d)}: ${r.handled} calls completed · logged in ${hm(r.login)} · average call ${r.handled ? ms(r.aht) : "–"}">${r.handled}</td>`;
+      return `<td class="num ${g}" title="${dShort(d)}: ${r.handled} calls completed · logged in ${hm(r.login)} · AHT ${r.handled ? ms(r.aht) : "–"}">${r.handled}</td>`;
     }).join("")}</tr>`).join("")}</tbody>`;
 }
 
