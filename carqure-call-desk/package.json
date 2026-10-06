@@ -1,0 +1,13 @@
+{
+  "name": "carqure-call-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CarQure Call Desk dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

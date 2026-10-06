@@ -1,0 +1,18 @@
+# Render Blueprint for the CarQure Call Desk dashboard.
+# Render → New + → Blueprint → pick this repository. You'll be asked for UPLOAD_KEY and GITHUB_TOKEN.
+services:
+  - type: web
+    name: carqure-call-desk
+    runtime: node
+    plan: free
+    rootDir: carqure-call-desk
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: UPLOAD_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: Thamaraiselvan2499/carqure-call-desk

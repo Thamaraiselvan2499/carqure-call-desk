@@ -179,11 +179,6 @@ footer { color: var(--ink-3); font-size: 12px; display: grid; gap: 4px; }
 .msg.good { background: var(--good-bg); color: var(--good); }
 .msg.bad { background: var(--bad-bg); color: var(--bad); }
 .msg.warn { background: var(--warn-bg); color: var(--warn); }
-.key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
-.key-row label { font-weight: 700; }
-.key-row input { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 36px; flex: 1 1 180px; min-width: 0; }
-.key-row .ok { color: var(--good); font-weight: 700; }
-.key-row .no { color: var(--bad); font-weight: 700; }
 .empty-state { text-align: center; padding: 40px 16px; color: var(--ink-2); }
 .empty-state strong { display: block; font-size: 16px; color: var(--ink); margin-bottom: 4px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
@@ -452,7 +447,7 @@ const INGEST = (() => {
 })();
 
 
-const CONF = {"targets": {"login": 27000, "loginA": 25200, "aht": 120, "ahtA": 150, "bl": 4500, "blA": 5400, "miss": 5, "missA": 10}, "order": ["Krishnaveni", "Abdul", "Rakesh", "Rohit", "Mani", "Madhi", "Suganya", "Khizer", "Sam", "Catharine", "Nasreen"], "mode": "server"};
+const CONF = {"targets": {"login": 27000, "loginA": 25200, "aht": 120, "ahtA": 150, "bl": 4500, "blA": 5400, "miss": 5, "missA": 10}, "order": ["Krishnaveni", "Abdul", "Rakesh", "Rohit", "Mani", "Madhi", "Suganya", "Khizer", "Sam", "Catharine", "Nasreen"], "static": true};
 const DATA = { daily: [], missed: [], meta: {} };
 let db = null, downloads = null;
 const T = CONF.targets;
@@ -819,9 +814,7 @@ async function buildReport() {
     say("good", `Report for <b>${fmtDate(day.date)}</b> is ready: ${day.agents.length} agents, ${day.missed.length} missed calls.${replacing ? " It replaced the earlier upload for that day." : ""}`);
   } catch (e) {
     $("buildBtn").disabled = false;
-    const why = e && e.code === "bad_key" ? "The upload key is wrong. Check it and try again."
-      : e && e.code === "server" ? esc(e.message)
-      : e && e.code === "not_granted" ? "You have view-only access, so you can't add reports. Ask the owner for edit access."
+    const why = e && e.code === "not_granted" ? "You have view-only access, so you can't add reports. Ask the owner for edit access."
       : e && (e.code === "resource_exhausted" || e.code === "quota_exceeded") ? "The report is too large to save. Tell Claude so the storage can be split."
       : `Saving failed${e && e.message ? `: ${esc(e.message)}` : ""}. Try again in a moment.`;
     say("bad", why);
@@ -899,59 +892,6 @@ $("dlBtn").addEventListener("click", async () => {
 function alertMsg(t) { $("emptyText"); say("bad", t); }
 
 /* Connect to the shared store */
-/* Render build: data lives on the server at api/days; uploads need the upload key */
-const KEY_STORE = "carqure-upload-key";
-const getKey = () => { const el = document.getElementById("upKey"); return el ? el.value.trim() : ""; };
-function applyDays(list) {
-  DATA.daily = []; DATA.missed = []; DATA.meta = {};
-  list.forEach(v => { v.agents.forEach(a => DATA.daily.push(a)); v.missed.forEach(m => DATA.missed.push(m)); DATA.meta[v.date] = { uploadedAt: v.uploadedAt, files: v.files || [] }; });
-  dates = [...new Set(DATA.daily.map(r => r.date))].sort();
-  if (pendingDate && dates.includes(pendingDate)) { state.date = pendingDate; pendingDate = null; }
-  if (!dates.length) { $("emptyTitle").textContent = "No reports yet"; $("emptyText").textContent = "Drop the six call-platform exports in the upload box above to build the first day."; }
-  fillDates(); render();
-}
-async function refreshServer() {
-  const k = getKey();
-  const res = await fetch("api/days", { cache: "no-store", headers: k ? { "x-upload-key": k } : {} });
-  if (!res.ok) throw new Error("status " + res.status);
-  applyDays(await res.json());
-}
-async function loadServer() {
-  downloads = { save: async ({ filename, data }) => {
-    const url = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-    const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000); return { status: "saved" };
-  } };
-  const row = document.createElement("div");
-  row.className = "key-row";
-  row.innerHTML = `<label for="upKey">Upload key</label><input type="password" id="upKey" autocomplete="current-password" placeholder="Only needed to upload"><span id="keyState"></span>`;
-  $("uploadPanel").querySelector(".up-actions").before(row);
-  try { $("upKey").value = localStorage.getItem(KEY_STORE) || ""; } catch (_) {}
-  let t;
-  $("upKey").addEventListener("input", () => {
-    clearTimeout(t);
-    t = setTimeout(async () => {
-      const k = getKey();
-      try { k ? localStorage.setItem(KEY_STORE, k) : localStorage.removeItem(KEY_STORE); } catch (_) {}
-      if (!k) { $("keyState").textContent = ""; return; }
-      const r = await fetch("api/check-key", { method: "POST", headers: { "x-upload-key": k } }).catch(() => null);
-      $("keyState").textContent = r && r.ok ? "✓ Key accepted" : "Key not recognised";
-      $("keyState").className = r && r.ok ? "ok" : "no";
-      if (r && r.ok) refreshServer().catch(() => {});
-    }, 400);
-  });
-  if (getKey()) $("upKey").dispatchEvent(new Event("input"));
-  db = { collection: () => ({ doc: () => ({ set: async v => {
-    const res = await fetch("api/days", { method: "POST", headers: { "content-type": "application/json", "x-upload-key": getKey() }, body: JSON.stringify(v) });
-    if (res.status === 401) throw { code: "bad_key" };
-    if (!res.ok) { let m = "Saving failed."; try { m = (await res.json()).error || m; } catch (_) {} throw { code: "server", message: m }; }
-    await refreshServer();
-  } }) }) };
-  try { await refreshServer(); }
-  catch (e) { $("emptyTitle").textContent = "Reports couldn't load"; $("emptyText").textContent = "The server didn't answer. If it was asleep, wait 30 seconds and reload."; }
-  setInterval(() => { if (document.visibilityState === "visible") refreshServer().catch(() => {}); }, 120000);
-}
-
 /* GitHub Pages build: data comes from data/days.json, built by the repo's workflow */
 async function loadStatic() {
   downloads = { save: async ({ filename, data }) => {
@@ -977,7 +917,6 @@ async function loadStatic() {
 }
 
 (async () => {
-  if (CONF.mode === "server") return loadServer();
   if (CONF.static) return loadStatic();
   const use = n => (window.claude && window.claude.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
   const [dbNs, dl, user] = await Promise.all([use("db"), use("downloads"), use("user")]);
