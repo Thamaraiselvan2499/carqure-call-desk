@@ -766,7 +766,7 @@ root.innerHTML=`
   <div class="card wide"><h2>Where the logged-in time went <span class="kind">(So far today)</span></h2><div class="chart" id="d-c-split"></div><p class="note">Idle = Ready with no call connected. Not Ready = logged in but switched off from calls.</p></div>
  </section>
  <section class="card"><h2>Agent scorecard <span class="kind" id="d-tbl-kind"></span></h2>
-  <div class="cfkey"><span class="k" style="background:var(--goodbg);color:var(--good)">Meets target</span><span class="k" style="background:var(--badbg);color:var(--bad)">Misses target</span><span>AHT 2:00 minimum · break 30m and lunch 1h maximum · login 7h 30m is checked on the 6:30 PM upload only. "+ since" = calls handled since the previous upload.</span></div>
+  <div class="cfkey"><span class="k" style="background:var(--goodbg);color:var(--good)">Meets target</span><span class="k" style="background:var(--badbg);color:var(--bad)">Misses target</span><span>AHT 2:00 minimum · break 30m and lunch 1h maximum · login 7h 30m is checked on the 6:30 PM upload only.</span></div>
   <div id="d-tbl"></div>
   <div class="snap-act" id="d-act"></div>
  </section>
@@ -858,10 +858,9 @@ function renderAll(){
  const cfMin=(v,t)=>v>=t?'ok':'bad',cfMax=(v,t)=>v<=t?'ok':'bad';
  const hasLogin=snap.files.some(f=>f.kind==='login');
  const cols=[{h:'Agent',v:r=>r.name,f:r=>r.name},
-  ...(hasLogin?[{g:'att',h:'First login',k:'Time',v:r=>r.firstLogin??1e9,f:r=>clk(r.firstLogin)},{g:'att',h:'Logoff',k:'Time',v:r=>r.lastLogout??0,f:r=>late?clk(r.lastLogout):'–'}]:[]),
+  ...(hasLogin?[{g:'att',h:'First login',k:'Time',v:r=>r.firstLogin??1e9,f:r=>clk(r.firstLogin)}]:[]),
   {g:'att',h:'Logged in',k:'Total',v:r=>r.login,f:r=>hm(r.login),cf:late?r=>cfMin(r.login,TGT.login):null,t:hm(T.login)},
   {g:'calls',h:'Handled',k:'Total',v:r=>r.handled,f:r=>n(r.handled),bar:1,t:n(T.handled)},
-  ...(pr?[{g:'calls',h:'+ since '+slotLbl(p.slot),k:'Calls',v:r=>r.handled-(pr[r.id]?.handled||0),f:r=>'+'+n(r.handled-(pr[r.id]?.handled||0)),t:'+'+n(T.handled-sum(R.map(r=>pr[r.id]?.handled||0)))}]:[]),
   {g:'calls',h:'Talk time',k:'Total',v:r=>r.talk,f:r=>hm(r.talk),bar:1,t:hm(T.talk)},
   {g:'calls',h:'AHT',k:'Avg/call',v:r=>r.aht,f:r=>ms(r.aht),cf:r=>cfMin(r.aht,TGT.aht),t:ms(T.handled?T.talk/T.handled:0)},
   {g:'io',h:'Out dialled',k:'Total',v:r=>r.outTot,f:r=>n(r.outTot),t:n(T.outTot)},
