@@ -1,0 +1,13 @@
+{
+  "name": "carqure-call-performance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CarQure call performance dashboard with 1:30 / 4:30 / 6:30 PM daily uploads",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,949 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}</style></head><body>
+<title>Hue Team Call Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: tabs → filter row → targets → KPI tiles with mini-trends → full-width + paired chart cards → grouped scorecard table */
+:root{
+  --bg:#f3f5f8; --panel:#ffffff; --line:#e0e4ea; --grid:#edf0f4;
+  --fg:#14181d; --fg2:#4b5460; --muted:#77808b;
+  --out:#2a78d6; --in:#eb6834;
+  --c-talk:#2a78d6; --c-idle:#eda100; --c-nr:#9aa3ad; --c-lunch:#1baf7a; --c-brk:#4a3aa7; --c-meet:#e87ba4; --c-other:#d5dae0;
+  --good:#0e7c3a; --goodbg:#e3f4ea; --bad:#b42318; --badbg:#fdecea; --warn:#a15c00; --warnbg:#fdf1dc;
+  --hm-good:#9fd8b4; --hm-bad:#f4a7a0; --hm-warn:#f5cf85; --hm-none:#edf0f4;
+  --seq0:#e6effb; --seq1:#1f5fae; --barfill:#c9dcf5; --selbg:#eaf2fd; --s1:#a9c9f0; --s2:#5b9be0; --s3:#1f5fae;
+  --display:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101317; --panel:#191d23; --line:#2a3039; --grid:#222730;
+  --fg:#eef1f4; --fg2:#b4bcc6; --muted:#8a939e;
+  --out:#3987e5; --in:#d95926;
+  --c-talk:#3987e5; --c-idle:#c98500; --c-nr:#6b7480; --c-lunch:#199e70; --c-brk:#9085e9; --c-meet:#d55181; --c-other:#3a414b;
+  --good:#5fd08a; --goodbg:#16311f; --bad:#ff8a80; --badbg:#3a1a19; --warn:#f0b35a; --warnbg:#3a2c12;
+  --hm-good:#2e6b47; --hm-bad:#8c3b36; --hm-warn:#7d5d1e; --hm-none:#222730;
+  --seq0:#1f2731; --seq1:#6aa8f0; --barfill:#2a3f5c; --selbg:#1f2a38; --s1:#2c4a70; --s2:#3f7bc4; --s3:#8bbcf5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101317; --panel:#191d23; --line:#2a3039; --grid:#222730;
+  --fg:#eef1f4; --fg2:#b4bcc6; --muted:#8a939e;
+  --out:#3987e5; --in:#d95926;
+  --c-talk:#3987e5; --c-idle:#c98500; --c-nr:#6b7480; --c-lunch:#199e70; --c-brk:#9085e9; --c-meet:#d55181; --c-other:#3a414b;
+  --good:#5fd08a; --goodbg:#16311f; --bad:#ff8a80; --badbg:#3a1a19; --warn:#f0b35a; --warnbg:#3a2c12;
+  --hm-good:#2e6b47; --hm-bad:#8c3b36; --hm-warn:#7d5d1e; --hm-none:#222730;
+  --seq0:#1f2731; --seq1:#6aa8f0; --barfill:#2a3f5c; --selbg:#1f2a38; --s1:#2c4a70; --s2:#3f7bc4; --s3:#8bbcf5; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);font-size:14px;line-height:1.45}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:16px;padding-block:24px 56px;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+h1{font-size:26px;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--fg2);margin:4px 0 0}
+.pill{font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:var(--panel);padding:5px 10px;border-radius:999px;color:var(--fg2)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{font:600 14px var(--display);color:var(--fg2);background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;cursor:pointer;white-space:nowrap;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--out)}
+.tabs button:hover{color:var(--fg)}
+button:focus-visible,select:focus-visible,input:focus-visible,th:focus-visible{outline:2px solid var(--out);outline-offset:2px}
+.panel{display:flex;flex-direction:column;gap:20px}
+.panel[hidden]{display:none}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.toolbar label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:10px}
+select{font:600 14px var(--display);padding:8px 34px 8px 12px;border:1px solid var(--line);border-radius:6px;background-color:var(--panel);color:var(--fg);cursor:pointer;min-width:220px;appearance:none;
+ background-image:linear-gradient(45deg,transparent 50%,var(--fg2) 50%),linear-gradient(135deg,var(--fg2) 50%,transparent 50%);background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%;background-size:5px 5px;background-repeat:no-repeat}
+.excl{font-size:12.5px;color:var(--muted);margin:0}
+.note{font-size:12px;color:var(--muted);margin:0}
+.kind{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;white-space:nowrap}
+h2 .kind{font-size:11px;margin-left:4px}
+.qn{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500;margin-right:6px}
+
+/* targets + KPI tiles */
+.targets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tgc{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--good);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tgc.warn{border-top-color:var(--warn)} .tgc.bad{border-top-color:var(--bad)}
+.tgc .q,.kpi .q{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.tgc .v{font-size:18px;font-weight:600}
+.tgc .d,.kpi .d{font-size:12px;color:var(--fg2)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.kpi{background:var(--panel);padding:14px 16px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-.01em}
+.mini{margin-top:8px;height:30px;position:relative}
+.spark{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.spark-end{position:absolute;width:7px;height:7px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--panel)}
+.strip{position:absolute;left:4px;right:4px;top:50%;height:0;border-top:1px solid var(--line)}
+.strip .dt{position:absolute;top:0;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);background:var(--out);box-shadow:0 0 0 2px var(--panel);cursor:default}
+.strip .dt.dim{background:var(--c-nr)}
+.strip .tk{position:absolute;top:-8px;height:16px;border-left:2px solid var(--fg)}
+.strip .lbl{position:absolute;top:8px;font:10px var(--mono);color:var(--muted);transform:translateX(-50%);white-space:nowrap}
+.mini-cap{display:flex;justify-content:space-between;font:10.5px var(--mono);color:var(--muted);margin-top:16px}
+
+/* cards + charts */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.card.wide{grid-column:1/-1}
+.card h2{font-size:15px;margin:0;font-weight:600}
+.chead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.chart{width:100%;min-height:120px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--bg)}
+.seg button{font:600 12px var(--display);border:0;background:none;color:var(--fg2);padding:6px 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:inset 0 -2px 0 var(--out)}
+.pw{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.perf{border-left:4px solid var(--good)}
+.perf.worst{border-left-color:var(--bad)}
+.perf .tag{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--goodbg);color:var(--good)}
+.perf.worst .tag{background:var(--badbg);color:var(--bad)}
+.perf .who{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.perf .name{font-size:28px;font-weight:700}
+.perf .score{font-family:var(--mono);color:var(--fg2);font-size:13px}
+.perf ul{margin:0;padding-left:18px;color:var(--fg2);display:flex;flex-direction:column;gap:3px}
+.method{font-size:12.5px;color:var(--fg2);display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 24px}
+.method p{margin:0} .method b{color:var(--fg)}
+
+/* individual view */
+.indiv{border-top:4px solid var(--out)}
+.indiv .top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+.indiv .nm{font-size:28px;font-weight:700}
+.indiv .meta{font-family:var(--mono);color:var(--fg2);font-size:13px}
+.itiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.it{background:var(--panel);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.it .q{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.it .v{font-size:21px;font-weight:600}
+.it .d{font-size:12px;color:var(--fg2)}
+.cmp{font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px;white-space:nowrap}
+.cmp.up{background:var(--goodbg);color:var(--good)} .cmp.dn{background:var(--badbg);color:var(--bad)} .cmp.eq{background:var(--grid);color:var(--muted)}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.three h3,.vs h3{font-size:13px;margin:0 0 4px;font-weight:600}
+.vs{display:flex;flex-direction:column;gap:4px}
+.vsrow{display:grid;grid-template-columns:170px minmax(0,1fr) 120px;align-items:center;gap:12px;font-size:12.5px;min-height:30px}
+.vsrow .mini{margin:0;height:24px}
+.vsrow .val{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.vsrow .strip .lbl{display:none}
+
+/* tables */
+.tblbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chips span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-right:2px}
+.chip-t{font:600 12px var(--display);border:1px solid var(--line);background:var(--panel);color:var(--fg2);border-radius:999px;padding:4px 10px;cursor:pointer}
+.chip-t[aria-pressed="true"]{background:var(--selbg);color:var(--fg);border-color:var(--out)}
+.btn{font:600 12px var(--display);border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:6px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--out)}
+.cfkey{display:flex;gap:8px 12px;flex-wrap:wrap;font-size:12px;color:var(--fg2);align-items:center}
+.cfkey .k{padding:1px 8px;border-radius:4px}
+.tw{overflow:auto;max-height:560px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th{position:sticky;background:var(--panel);z-index:2}
+thead tr.g th{top:0;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg2);font-weight:700;text-align:center;border-bottom:2px solid var(--line);padding:7px 12px}
+thead tr.g th.gb{border-left:1px solid var(--line)}
+thead tr.h th{top:31px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;cursor:pointer;user-select:none;vertical-align:bottom;line-height:1.3}
+thead tr.h th:hover{color:var(--fg)}
+thead tr.h th.ns{cursor:default}
+th.gb,td.gb{border-left:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;z-index:1;background:var(--panel)}
+thead th:first-child{z-index:3}
+td{font-family:var(--mono);font-variant-numeric:tabular-nums;background:var(--panel)}
+td:first-child{font-family:var(--display);font-weight:600}
+tbody tr:hover td{background:var(--grid)}
+tbody tr.sel td{background:var(--selbg)}
+tr.tot td{font-weight:600;background:var(--grid);border-bottom:0}
+td.bar{background-image:linear-gradient(90deg,var(--barfill),var(--barfill));background-repeat:no-repeat;background-size:calc((100% - 24px) * var(--w)) 4px;background-position:12px calc(100% - 4px)}
+td.cf.ok{background-color:var(--goodbg);color:var(--good)} td.cf.bad{background-color:var(--badbg);color:var(--bad)} td.cf.warn{background-color:var(--warnbg);color:var(--warn)}
+td svg.sp{display:block;width:90px;height:22px;margin-left:auto}
+.cbul{display:inline-flex;align-items:center;gap:8px}
+.cbul i{position:relative;display:inline-block;width:70px;height:6px;background:var(--grid);border-radius:3px}
+.cbul i b{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+.cbul i u{position:absolute;top:-4px;bottom:-4px;border-left:2px solid var(--fg)}
+.chip{display:inline-block;font-family:var(--display);font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:6px}
+.chip.b{background:var(--goodbg);color:var(--good)} .chip.w{background:var(--badbg);color:var(--bad)}
+.v-bad{color:var(--bad)} .v-good{color:var(--good)}
+.tgt{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.tgt .q{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.tgt-ctl{display:flex;align-items:center;gap:8px;font-family:var(--mono)}
+.tgt-ctl input{width:110px;font:500 20px var(--mono);padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+#tip{position:fixed;pointer-events:none;background:var(--fg);color:var(--bg);font-size:12px;padding:6px 9px;border-radius:6px;z-index:20;display:none;max-width:280px;line-height:1.4}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);font-size:13px;padding:8px 14px;border-radius:8px;z-index:30}
+.drop{position:relative;display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line);border-radius:8px;padding:22px 16px;background:var(--bg);cursor:pointer;text-align:center;color:var(--fg2)}
+.drop.over{border-color:var(--out);background:var(--selbg)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop:focus-within{outline:2px solid var(--out);outline-offset:2px}
+.flist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.flist li{display:flex;gap:6px;align-items:baseline;min-width:0;flex-wrap:wrap}
+.flist li span{color:var(--muted);font-family:var(--mono);font-size:11.5px;overflow-wrap:anywhere}
+.flist li.ok b{color:var(--good)} .flist li.no b{color:var(--bad)}
+.up-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.fld input[type=date]{font:500 14px var(--mono);padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--fg)}
+.up-act{margin-left:auto}
+.btn.pri{background:var(--out);border-color:var(--out);color:#fff;padding:9px 16px;font-size:13px}
+.btn.pri:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{color:var(--bad)}
+.day-bar{gap:12px 24px}
+.day-bar .seg button:disabled{color:var(--muted);opacity:.6;cursor:not-allowed}
+.empty h2{font-size:15px;margin:0}
+.card[hidden],#d-body[hidden],#up-card[hidden]{display:none}
+.snap-act{display:flex;justify-content:flex-end}
+@media (max-width:900px){.up-act{margin-left:0}.kpi .v{font-size:20px}.tgc .v{font-size:16px}.grid2,.pw,.three{grid-template-columns:1fr}.targets,.kpis,.itiles{grid-template-columns:repeat(2,minmax(0,1fr))}.vsrow{grid-template-columns:120px minmax(0,1fr) 92px}select{min-width:0;width:100%}.toolbar label{flex:1}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div><h1>Hue Team Call Performance</h1><p class="sub">Daily tab: today's uploads at 1:30, 4:30 and 6:30 PM · Monthly tabs: 31 Aug – 30 Sep 2026 · Customer Champion and Feedback teams</p></div>
+</header>
+<nav class="tabs" role="tablist" aria-label="Dashboard sections">
+  <button role="tab" id="tb-day" aria-controls="tab-day" aria-selected="true">Daily · 1:30 / 4:30 / 6:30</button>
+  <button role="tab" id="tb-cc" aria-controls="tab-cc" aria-selected="false">Customer Champion · Sep</button>
+  <button role="tab" id="tb-gx" aria-controls="tab-gx" aria-selected="false">Go-Axen Deficit % · Sep</button>
+  <button role="tab" id="tb-fb" aria-controls="tab-fb" aria-selected="false">Feedback Team · Sep</button>
+</nav>
+<div id="tab-day" role="tabpanel" aria-labelledby="tb-day" class="panel"></div>
+<div id="tab-cc" role="tabpanel" aria-labelledby="tb-cc" class="panel" hidden></div>
+<div id="tab-gx" role="tabpanel" aria-labelledby="tb-gx" class="panel" hidden></div>
+<div id="tab-fb" role="tabpanel" aria-labelledby="tb-fb" class="panel" hidden></div>
+</div>
+<div id="tip" role="tooltip"></div>
+<div id="toast" role="status" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script>window.SERVER_MODE=true;</script>
+<script>
+const RAW={"agents": [{"agent": "Hue1001", "days": 25, "login": 660328, "ready": 463215, "notready": 77436, "brk": 29567, "lunch": 37878, "meet": 3794, "talkIn": 16895, "talkOut": 81228, "talk": 98123, "wrap": 168615, "inTot": 120, "inAns": 117, "outTot": 2262, "outAns": 984, "handled": 1101, "missed": 3, "inUnans": 3, "idle": 365092, "id": "Hue1001", "name": "Krishnaveni", "team": "champion", "dOut": [23, 28, 0, 26, 33, 39, 0, 13, 22, 30, 37, 0, 40, 0, 0, 41, 74, 58, 47, 55, 0, 51, 67, 45, 0, 50, 58, 0, 53, 42, 54], "dIn": [5, 1, 0, 11, 6, 6, 0, 2, 7, 7, 3, 0, 4, 0, 0, 9, 2, 4, 3, 1, 0, 0, 9, 6, 0, 7, 9, 0, 9, 5, 3], "dLogin": [27105, 27056, 0, 26617, 27484, 24545, 0, 22585, 26981, 29253, 27454, 973, 27322, 0, 0, 27567, 30599, 28502, 32368, 25990, 17522, 27274, 29047, 28261, 0, 29332, 27382, 0, 29810, 30685, 27086], "calls_cdr": 2384, "disp": {"RNR / No Response": 1230, "Call Back Requested": 721, "Other": 95, "Busy": 84, "Disconnected": 35, "Follow Up": 26, "Switched Off / Not Reachable": 24, "Not Required / Done Elsewhere": 8, "Presentation Given": 4, "Voicemail": 4, "Service Updates Given": 2}, "dBrk": [0, 0, 0, 1454, 1267, 1304, 0, 0, 0, 0, 0, 0, 1778, 0, 0, 2762, 1309, 2560, 2257, 2179, 0, 1152, 2185, 645, 0, 2152, 2147, 0, 898, 2204, 1314], "dLunch": [1755, 2565, 0, 0, 461, 2228, 0, 3556, 3473, 2584, 0, 0, 2322, 0, 0, 662, 0, 2060, 0, 0, 0, 2445, 2059, 1820, 0, 2313, 2002, 0, 2055, 2228, 1290]}, {"agent": "Hue1002", "days": 28, "login": 735426, "ready": 331587, "notready": 279619, "brk": 39585, "lunch": 23695, "meet": 9176, "talkIn": 11698, "talkOut": 121539, "talk": 133237, "wrap": 311400, "inTot": 413, "inAns": 82, "outTot": 3019, "outAns": 1570, "handled": 1652, "missed": 309, "inUnans": 331, "idle": 198350, "id": "Hue1002", "name": "Abdul", "team": "champion", "dOut": [52, 36, 0, 66, 46, 45, 51, 46, 31, 53, 69, 76, 28, 0, 0, 68, 111, 0, 84, 76, 0, 89, 78, 64, 36, 49, 72, 65, 83, 72, 24], "dIn": [2, 0, 0, 5, 3, 2, 2, 8, 5, 6, 3, 6, 5, 0, 0, 7, 2, 0, 2, 2, 0, 0, 1, 1, 3, 1, 7, 0, 4, 4, 1], "dLogin": [26431, 26285, 1721, 27649, 27357, 28904, 29015, 27247, 27654, 29197, 25143, 26725, 28288, 0, 267, 29895, 31263, 0, 26736, 28032, 0, 29625, 28439, 26699, 26892, 32392, 28883, 26703, 28296, 30060, 27824], "calls_cdr": 3431, "disp": {"RNR / No Response": 308, "Call Back Requested": 162, "Other": 131, "Not Required / Done Elsewhere": 92, "Busy": 16, "Switched Off / Not Reachable": 11, "Disconnected": 2, "Follow Up": 2, "Garage Call": 2, "Presentation Given": 1, "Feedback": 1}, "dBrk": [907, 1282, 0, 2479, 1952, 2491, 0, 0, 1037, 1212, 934, 2209, 2481, 0, 0, 1416, 2086, 0, 900, 1101, 0, 911, 2893, 2217, 902, 1222, 2026, 868, 1521, 2104, 2434], "dLunch": [2302, 2294, 0, 1859, 0, 0, 1752, 1003, 0, 0, 2288, 1497, 0, 0, 0, 1712, 0, 0, 0, 1620, 0, 1624, 0, 3, 1863, 0, 1821, 0, 2057, 0, 0]}, {"agent": "Hue1003", "days": 29, "login": 772907, "ready": 371658, "notready": 346653, "brk": 34367, "lunch": 30352, "meet": 2254, "talkIn": 15320, "talkOut": 101485, "talk": 116805, "wrap": 0, "inTot": 415, "inAns": 100, "outTot": 3098, "outAns": 1122, "handled": 1222, "missed": 300, "inUnans": 315, "idle": 254853, "id": "Hue1003", "name": "Rakesh", "team": "champion", "dOut": [45, 28, 42, 38, 0, 44, 0, 25, 27, 36, 37, 42, 35, 26, 0, 49, 68, 67, 67, 66, 0, 10, 51, 50, 56, 48, 46, 0, 40, 44, 35], "dIn": [0, 3, 3, 8, 0, 7, 0, 2, 4, 4, 10, 10, 7, 3, 0, 6, 2, 1, 0, 0, 0, 0, 1, 4, 3, 4, 6, 0, 4, 4, 4], "dLogin": [24192, 29115, 29418, 30754, 2043, 27797, 0, 23076, 30156, 30401, 30749, 29082, 29858, 26803, 4735, 31734, 34782, 30296, 33527, 29737, 976, 8537, 28135, 27960, 33783, 32381, 31183, 0, 32498, 36067, 31272], "calls_cdr": 3513, "disp": {}, "dBrk": [1268, 1697, 1004, 1023, 0, 1240, 0, 2334, 1101, 2479, 1060, 1286, 1276, 0, 0, 965, 1744, 2124, 801, 1782, 0, 1280, 3043, 1725, 492, 0, 1858, 0, 0, 1687, 1098], "dLunch": [2697, 1647, 2323, 2417, 0, 1769, 0, 2298, 0, 0, 1458, 2027, 0, 0, 0, 1817, 0, 0, 1479, 1517, 0, 0, 0, 1971, 337, 1457, 938, 0, 1761, 1064, 1375]}, {"agent": "Hue1004", "days": 14, "login": 372648, "ready": 176822, "notready": 128921, "brk": 14314, "lunch": 12046, "meet": 766, "talkIn": 7343, "talkOut": 55578, "talk": 62921, "wrap": 0, "inTot": 117, "inAns": 40, "outTot": 1060, "outAns": 429, "handled": 469, "missed": 75, "inUnans": 77, "idle": 113901, "id": "Hue1004", "name": "Rohit", "team": "champion", "dOut": [36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 22, 20, 16, 37, 29, 24, 38, 54, 28, 0, 59, 35, 29], "dIn": [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5, 0, 2, 1, 2, 3, 3, 6, 3, 0, 5, 4, 1], "dLogin": [28726, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4781, 31315, 15251, 9133, 29189, 24971, 36033, 35569, 34113, 31204, 0, 31535, 31928, 28135], "calls_cdr": 1177, "disp": {}, "dBrk": [925, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1095, 1018, 714, 1257, 824, 1228, 814, 1113, 3578, 0, 0, 769, 979], "dLunch": [1161, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1553, 0, 2205, 1880, 0, 0, 0, 1825, 0, 0, 0, 1678, 1744]}, {"agent": "Hue1005", "days": 25, "login": 688612, "ready": 576242, "notready": 148509, "brk": 40215, "lunch": 46436, "meet": 0, "talkIn": 14162, "talkOut": 62562, "talk": 76724, "wrap": 2126073, "inTot": 272, "inAns": 119, "outTot": 1173, "outAns": 697, "handled": 816, "missed": 149, "inUnans": 153, "idle": 499518, "id": "Hue1005", "name": "Catharine", "team": "feedback", "dOut": [0, 21, 53, 28, 17, 25, 0, 16, 25, 10, 21, 19, 17, 0, 0, 27, 27, 17, 44, 34, 0, 43, 45, 30, 26, 36, 30, 0, 27, 31, 30], "dIn": [0, 3, 7, 10, 10, 8, 0, 3, 7, 5, 4, 7, 0, 0, 0, 6, 8, 3, 5, 4, 0, 3, 4, 1, 4, 1, 5, 0, 2, 5, 4], "dLogin": [0, 23634, 30035, 29859, 25445, 29193, 0, 28886, 30622, 28124, 29041, 25258, 24211, 0, 0, 28698, 29882, 28541, 29078, 27234, 0, 28848, 28217, 28774, 27537, 29353, 28678, 0, 13189, 28873, 26516], "calls_cdr": 1445, "disp": {"Presentation Given": 321, "RNR / No Response": 272, "Garage Call": 189, "Service Updates Given": 118, "Busy": 83, "Voicemail": 68, "Feedback": 60, "Disconnected": 36, "Other": 31, "Under Service": 31, "Call Back Requested": 22, "Switched Off / Not Reachable": 7}, "dBrk": [0, 1346, 0, 1269, 1189, 1958, 0, 507, 2943, 0, 1389, 2409, 1551, 0, 0, 2781, 1096, 0, 2585, 2411, 0, 2787, 859, 2527, 2504, 1168, 2467, 0, 1168, 1932, 1369], "dLunch": [0, 2537, 2124, 2452, 2545, 2041, 0, 1658, 0, 2252, 1452, 776, 2147, 0, 0, 0, 1796, 2400, 1705, 2294, 0, 1894, 2148, 2417, 1999, 1910, 2213, 0, 1473, 2210, 1993]}, {"agent": "Hue1006", "days": 3, "login": 28530, "ready": 17187, "notready": 8864, "brk": 2103, "lunch": 2212, "meet": 893, "talkIn": 807, "talkOut": 3536, "talk": 4343, "wrap": 9575, "inTot": 12, "inAns": 5, "outTot": 99, "outAns": 37, "handled": 42, "missed": 7, "inUnans": 7, "idle": 12844, "id": "Hue1006", "name": "Hue1006", "team": "champion", "dOut": [36, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], "dIn": [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "dLogin": [25330, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 48, 0, 0, 0, 0, 3086, 0, 0, 0, 0], "calls_cdr": 111, "disp": {"Follow Up": 36, "RNR / No Response": 24, "Call Back Requested": 4, "Other": 2}, "dBrk": [1341, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 762, 0, 0, 0, 0], "dLunch": [2054, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 158, 0, 0, 0, 0]}, {"agent": "Hue1007", "days": 26, "login": 664568, "ready": 450074, "notready": 123826, "brk": 26154, "lunch": 26614, "meet": 494, "talkIn": 19652, "talkOut": 94458, "talk": 114110, "wrap": 0, "inTot": 344, "inAns": 172, "outTot": 2960, "outAns": 1210, "handled": 1382, "missed": 157, "inUnans": 172, "idle": 335964, "id": "Hue1007", "name": "Mani", "team": "champion", "dOut": [42, 42, 43, 15, 52, 56, 0, 36, 46, 59, 36, 50, 30, 0, 0, 70, 0, 0, 0, 66, 31, 65, 63, 3, 64, 39, 54, 46, 51, 64, 87], "dIn": [2, 5, 4, 7, 5, 5, 0, 4, 8, 8, 7, 7, 6, 0, 0, 6, 0, 0, 0, 3, 2, 9, 8, 0, 10, 16, 12, 6, 17, 10, 5], "dLogin": [27471, 30226, 27286, 11853, 28496, 32310, 0, 23432, 29570, 30283, 30502, 27259, 29900, 0, 0, 29301, 3261, 0, 0, 28657, 9858, 29492, 26860, 2556, 32003, 29776, 28292, 25268, 29118, 29440, 30160], "calls_cdr": 3302, "disp": {}, "dBrk": [1975, 538, 1100, 1028, 2395, 1395, 0, 1080, 1978, 0, 1071, 1043, 0, 0, 0, 753, 0, 0, 0, 1031, 867, 0, 1177, 0, 0, 733, 1399, 857, 1855, 1778, 2101], "dLunch": [2645, 0, 0, 1226, 0, 1743, 0, 2297, 0, 1657, 0, 0, 2854, 0, 0, 1842, 0, 0, 0, 1912, 689, 1931, 0, 0, 2345, 0, 0, 1640, 0, 1989, 1844]}, {"agent": "Hue1008", "days": 26, "login": 728953, "ready": 615026, "notready": 80128, "brk": 29528, "lunch": 24734, "meet": 11163, "talkIn": 30270, "talkOut": 136342, "talk": 166612, "wrap": 0, "inTot": 393, "inAns": 205, "outTot": 3925, "outAns": 1517, "handled": 1722, "missed": 175, "inUnans": 188, "idle": 448414, "id": "Hue1008", "name": "Madhi", "team": "champion", "dOut": [77, 65, 46, 0, 74, 48, 0, 57, 34, 55, 46, 55, 34, 52, 0, 84, 103, 73, 72, 77, 0, 95, 0, 61, 57, 42, 62, 0, 47, 47, 54], "dIn": [10, 9, 10, 0, 3, 8, 0, 5, 4, 6, 3, 3, 7, 2, 0, 8, 11, 8, 13, 17, 0, 3, 0, 8, 9, 19, 9, 0, 15, 10, 5], "dLogin": [29507, 27972, 30491, 0, 28399, 31129, 0, 21460, 32632, 30123, 28188, 29736, 75845, 81787, 63215, 24848, 31936, 29395, 30218, 29444, 0, 31008, 0, 29474, 35146, 32473, 30232, 0, 28837, 34009, 25259], "calls_cdr": 4316, "disp": {}, "dBrk": [701, 848, 1850, 0, 2274, 1197, 0, 1232, 962, 2140, 0, 0, 0, 0, 0, 897, 879, 953, 1971, 1871, 0, 1678, 0, 2050, 0, 729, 1899, 0, 1627, 1856, 1914], "dLunch": [1625, 1655, 0, 0, 1410, 1278, 0, 1770, 0, 0, 1374, 2065, 0, 0, 0, 1708, 0, 1787, 1622, 0, 0, 0, 0, 0, 1344, 1520, 0, 0, 1828, 1855, 1893]}, {"agent": "Hue1009", "days": 25, "login": 686561, "ready": 523469, "notready": 96248, "brk": 50348, "lunch": 14713, "meet": 0, "talkIn": 15174, "talkOut": 59921, "talk": 75095, "wrap": 0, "inTot": 226, "inAns": 128, "outTot": 1078, "outAns": 617, "handled": 745, "missed": 97, "inUnans": 98, "idle": 448374, "id": "Hue1009", "name": "Nasreen", "team": "feedback", "dOut": [47, 17, 31, 19, 16, 16, 0, 37, 0, 25, 25, 34, 26, 0, 0, 29, 30, 11, 25, 27, 0, 17, 31, 19, 23, 20, 22, 0, 27, 19, 28], "dIn": [4, 0, 11, 5, 9, 3, 0, 5, 0, 1, 6, 11, 4, 0, 0, 3, 9, 9, 9, 13, 0, 6, 2, 0, 3, 5, 2, 0, 2, 2, 4], "dLogin": [28121, 22529, 27014, 29015, 28377, 24734, 0, 25255, 0, 24720, 27672, 28501, 21075, 0, 0, 31728, 31784, 31270, 29034, 27645, 0, 27346, 26794, 25647, 29979, 29147, 28669, 0, 27980, 24793, 26546], "calls_cdr": 1304, "disp": {}, "dBrk": [975, 0, 0, 1287, 1187, 2002, 0, 2865, 0, 1852, 0, 1553, 1562, 0, 0, 2801, 0, 0, 2793, 2388, 0, 2860, 3185, 2632, 2440, 1146, 4633, 0, 4761, 4167, 3259], "dLunch": [1993, 2540, 2130, 2344, 0, 2092, 0, 0, 0, 0, 0, 1831, 0, 0, 0, 0, 1783, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, {"agent": "Hue1010", "days": 26, "login": 751165, "ready": 188318, "notready": 402080, "brk": 25590, "lunch": 27227, "meet": 1254, "talkIn": 9704, "talkOut": 144043, "talk": 153747, "wrap": 0, "inTot": 249, "inAns": 62, "outTot": 3258, "outAns": 1372, "handled": 1434, "missed": 187, "inUnans": 187, "idle": 34571, "id": "Hue1010", "name": "Suganya", "team": "champion", "dOut": [0, 0, 35, 43, 51, 51, 70, 32, 77, 45, 56, 47, 39, 0, 0, 33, 109, 62, 71, 57, 18, 71, 71, 51, 52, 43, 51, 0, 47, 57, 33], "dIn": [0, 0, 2, 0, 1, 0, 0, 0, 2, 4, 0, 3, 1, 0, 0, 12, 3, 1, 0, 1, 2, 2, 0, 1, 0, 4, 5, 0, 6, 8, 4], "dLogin": [0, 0, 27467, 30611, 29352, 31827, 32779, 17700, 32435, 29693, 30084, 28908, 26035, 0, 0, 18275, 32426, 29898, 34992, 31685, 4533, 31315, 29510, 28891, 34371, 30347, 33497, 0, 33110, 33569, 25995], "calls_cdr": 3507, "disp": {}, "dBrk": [0, 0, 1596, 0, 1456, 0, 1033, 219, 2313, 0, 0, 1683, 1074, 0, 0, 0, 1347, 1462, 1320, 1813, 0, 1931, 1032, 2551, 875, 1475, 71, 0, 1220, 1119, 0], "dLunch": [0, 0, 0, 2561, 2623, 2216, 1823, 3007, 0, 2635, 0, 0, 0, 0, 0, 0, 2233, 2048, 0, 0, 0, 0, 2042, 0, 0, 2142, 2246, 0, 0, 0, 1651]}, {"agent": "Hue1011", "days": 27, "login": 757153, "ready": 648893, "notready": 85829, "brk": 42492, "lunch": 30872, "meet": 0, "talkIn": 7909, "talkOut": 79576, "talk": 87485, "wrap": 939599636, "inTot": 169, "inAns": 88, "outTot": 4740, "outAns": 1607, "handled": 1695, "missed": 76, "inUnans": 81, "idle": 561408, "id": "Hue1011", "name": "Khizer", "team": "champion", "dOut": [81, 55, 52, 60, 56, 39, 0, 47, 32, 0, 53, 33, 29, 18, 0, 54, 50, 30, 53, 68, 15, 80, 100, 109, 72, 82, 90, 0, 82, 87, 80], "dIn": [4, 1, 2, 3, 6, 5, 0, 1, 1, 0, 0, 2, 1, 1, 0, 0, 2, 1, 0, 1, 1, 2, 10, 7, 9, 6, 6, 0, 4, 8, 4], "dLogin": [28136, 27947, 30313, 29244, 28160, 29066, 0, 20147, 13092, 0, 30372, 27802, 26263, 26548, 0, 28800, 28462, 29663, 28272, 29877, 19277, 28607, 30580, 32214, 32211, 30585, 28233, 0, 31049, 31766, 27841], "calls_cdr": 4908, "disp": {"Call Back Requested": 30, "Presentation Given": 17, "Other": 13, "RNR / No Response": 10, "Feedback": 1}, "dBrk": [2346, 2199, 1454, 2218, 2350, 1373, 0, 1235, 1023, 0, 1005, 1646, 1064, 0, 0, 1704, 1801, 1926, 1669, 1447, 0, 2095, 1928, 829, 1318, 2349, 1702, 0, 2112, 1875, 1824], "dLunch": [0, 1863, 2024, 0, 1171, 1822, 0, 1853, 0, 0, 1550, 2043, 1360, 0, 0, 1783, 0, 1800, 0, 1640, 0, 1715, 1917, 0, 1651, 0, 1929, 0, 1519, 1535, 1697]}, {"agent": "Hue1012", "days": 26, "login": 763457, "ready": 501768, "notready": 111167, "brk": 24346, "lunch": 18498, "meet": 0, "talkIn": 7321, "talkOut": 61225, "talk": 68546, "wrap": 76746, "inTot": 101, "inAns": 62, "outTot": 2090, "outAns": 819, "handled": 881, "missed": 38, "inUnans": 39, "idle": 433222, "id": "Hue1012", "name": "Sam", "team": "champion", "dOut": [73, 54, 55, 27, 33, 48, 0, 27, 38, 50, 48, 48, 31, 0, 0, 40, 31, 28, 15, 2, 0, 0, 10, 13, 20, 25, 3, 0, 25, 48, 27], "dIn": [2, 1, 3, 0, 1, 3, 0, 1, 0, 2, 2, 1, 3, 0, 0, 1, 1, 7, 3, 0, 0, 0, 1, 1, 3, 3, 3, 0, 3, 10, 7], "dLogin": [31171, 27429, 32793, 31505, 30150, 27169, 0, 23684, 32222, 32153, 31103, 31467, 31880, 0, 0, 30396, 32861, 30261, 27185, 23151, 0, 30800, 20103, 29404, 31435, 31371, 27599, 0, 29985, 29532, 25387], "calls_cdr": 2191, "disp": {"RNR / No Response": 2}, "dBrk": [1009, 0, 1888, 1339, 994, 1359, 0, 0, 0, 0, 1040, 0, 0, 0, 0, 920, 2175, 2291, 2001, 0, 0, 0, 0, 1157, 1789, 2129, 0, 0, 1829, 0, 2426], "dLunch": [1138, 0, 0, 0, 2015, 1976, 0, 0, 0, 923, 1567, 0, 1045, 0, 0, 1075, 1005, 0, 0, 0, 0, 0, 0, 2010, 0, 0, 1789, 0, 2078, 1877, 0]}], "dates": ["2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05", "2026-09-06", "2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-12", "2026-09-13", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-19", "2026-09-20", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"]}, SALES_ALL=[{"name": "Abdul", "total": 704, "fresh": 0, "gx": 1, "acc": 71, "gxPct": "15.91%", "declined": 0, "completed": 40, "cancelled": 402, "dup": 0, "fu": 190, "checkin": "99.11%", "e2e": "5.68%", "full": "Abdul", "short": "Abdul", "excl": null}, {"name": "Jagadeesh", "total": 3, "fresh": 0, "gx": 0, "acc": 0, "gxPct": "33.33%", "declined": 2, "completed": 1, "cancelled": 0, "dup": 0, "fu": 0, "checkin": "100.00%", "e2e": "33.33%", "full": "Jagadeesh", "short": "Jagadeesh", "excl": "Excluded from the deficit calculation"}, {"name": "Krishnaveni", "total": 555, "fresh": 1, "gx": 4, "acc": 38, "gxPct": "16.40%", "declined": 0, "completed": 49, "cancelled": 363, "dup": 0, "fu": 100, "checkin": "95.60%", "e2e": "8.83%", "full": "Krishnaveni", "short": "Krishnaveni", "excl": null}, {"name": "Sam", "total": 142, "fresh": 0, "gx": 0, "acc": 7, "gxPct": "8.45%", "declined": 1, "completed": 5, "cancelled": 127, "dup": 0, "fu": 2, "checkin": "100.00%", "e2e": "3.52%", "full": "Lokesh", "short": "Sam", "excl": "Not in the report focus (Lokesh, shown as Sam)"}, {"name": "Manivasagam", "total": 670, "fresh": 3, "gx": 8, "acc": 47, "gxPct": "15.52%", "declined": 0, "completed": 49, "cancelled": 394, "dup": 0, "fu": 169, "checkin": "92.31%", "e2e": "7.31%", "full": "Manivasagam", "short": "Mani", "excl": null}, {"name": "Mathiyalagan", "total": 575, "fresh": 0, "gx": 6, "acc": 59, "gxPct": "18.43%", "declined": 0, "completed": 41, "cancelled": 334, "dup": 0, "fu": 135, "checkin": "94.34%", "e2e": "7.13%", "full": "Mathiyalagan", "short": "Madhi", "excl": null}, {"name": "Mohamed Khizer", "total": 472, "fresh": 7, "gx": 2, "acc": 14, "gxPct": "3.81%", "declined": 0, "completed": 2, "cancelled": 331, "dup": 0, "fu": 116, "checkin": "88.89%", "e2e": "0.42%", "full": "Mohamed Khizer", "short": "Khizer", "excl": "Excluded from the deficit calculation"}, {"name": "Rakesh", "total": 668, "fresh": 0, "gx": 3, "acc": 44, "gxPct": "16.02%", "declined": 0, "completed": 60, "cancelled": 449, "dup": 0, "fu": 112, "checkin": "97.20%", "e2e": "8.98%", "full": "Rakesh", "short": "Rakesh", "excl": null}, {"name": "Rohith", "total": 221, "fresh": 3, "gx": 4, "acc": 14, "gxPct": "13.12%", "declined": 0, "completed": 11, "cancelled": 95, "dup": 0, "fu": 94, "checkin": "86.21%", "e2e": "4.98%", "full": "Rohith", "short": "Rohit", "excl": "Not in the report focus"}, {"name": "Sam Anbin Rajan", "total": 28, "fresh": 0, "gx": 0, "acc": 0, "gxPct": "0.00%", "declined": 0, "completed": 0, "cancelled": 23, "dup": 0, "fu": 5, "checkin": "0%", "e2e": "0.00%", "full": "Sam Anbin Rajan", "short": "Sam Anbin Rajan", "excl": "Not in the Customer Champion list"}, {"name": "Santhanam", "total": 2, "fresh": 0, "gx": 0, "acc": 0, "gxPct": "0.00%", "declined": 0, "completed": 0, "cancelled": 2, "dup": 0, "fu": 0, "checkin": "0%", "e2e": "0.00%", "full": "Santhanam", "short": "Santhanam", "excl": "Excluded from the deficit calculation"}, {"name": "Suganya D", "total": 574, "fresh": 1, "gx": 8, "acc": 39, "gxPct": "14.11%", "declined": 0, "completed": 34, "cancelled": 396, "dup": 0, "fu": 96, "checkin": "90.12%", "e2e": "5.92%", "full": "Suganya D", "short": "Suganya", "excl": null}];
+</script>
+<script>
+// ---------- Call report parsing (runs in the browser; tested in node) ----------
+(function(G){
+function parseCSV(text){
+  text=text.replace(/^﻿/,'');
+  const rows=[];let row=[],f='',q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;else if(c===','){row.push(f);f=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(f);rows.push(row);row=[];f=''}
+    else f+=c}
+  if(f!==''||row.length){row.push(f);rows.push(row)}
+  return rows.filter(r=>r.some(v=>v.trim()!==''));
+}
+// rows -> objects; a row equal to a header-looking row restarts the header (CDR exports repeat headers)
+function toObjects(rows,headerTest){
+  let h=null;const out=[];
+  for(const r of rows){ if(headerTest(r)){h=r.map(x=>x.trim());continue} if(!h)continue;
+    const o={};h.forEach((k,i)=>o[k]=(r[i]??'').trim());out.push(o)}
+  return out;
+}
+const hms=s=>{if(!s)return 0;const p=String(s).trim().split(':').map(Number);if(p.some(isNaN))return 0;return p.length===3?p[0]*3600+p[1]*60+p[2]:p.length===2?p[0]*60+p[1]:p[0]};
+const num=s=>{const v=parseFloat(String(s).replace(/,/g,''));return isNaN(v)?0:v};
+const KINDS={
+  production:{test:r=>r.includes('Member Name')&&r.includes('Ready Time')&&r.includes('Inbound Total')},
+  login:{test:r=>r.includes('Member Name')&&r.includes('Login Time')&&r.includes('Logout Time')&&r.includes('Work Date')},
+  missed:{test:r=>r.includes('Member Name')&&r.includes('Disposition')&&r.includes('Customer Phone')},
+  cdr:{test:r=>r.includes('SNo')&&r.includes('MemberName')&&r.includes('CallDirection')},
+  breaks:{test:r=>r.includes('Member Name')&&r.includes('Break Time')&&r.includes('Lunch Time')&&!r.includes('Ready Time')},
+  queue:{test:r=>r.includes('Queue Group Name')},
+};
+function detect(rows){for(const [k,v] of Object.entries(KINDS)){if(rows.slice(0,3).some(r=>v.test(r.map(x=>x.trim()))))return k}return null}
+const LABEL={production:'Production report',login:'Login report',missed:'Missed calls report',cdr:'Call log (CDR)',breaks:'Break report',queue:'Queue missed report'};
+const tod=dt=>{const m=String(dt).match(/(\d{2}):(\d{2})(?::(\d{2}))?/);return m?(+m[1])*3600+(+m[2])*60+(+(m[3]||0)):null};
+const dpart=dt=>{const m=String(dt).match(/(\d{4}-\d{2}-\d{2})/);return m?m[1]:null};
+
+// files: [{name, text}] -> {agents:{id:{...}}, files:[...], dates:[...], hasCdr}
+function buildSnapshot(files){
+  const A={};const info=[];const dates=new Set();
+  const ag=id=>A[id]||(A[id]={login:0,ready:0,notready:0,brk:0,lunch:0,meet:0,query:0,inTot:0,inAns:0,outTot:0,outAns:0,talkIn:0,talkOut:0,missed:0,firstLogin:null,lastLogout:null,hourly:null,ext:''});
+  const isAgent=n=>/^Hue\d+$/i.test(String(n).trim());
+  const parsed=files.map(f=>{const rows=parseCSV(f.text);return{f,rows,kind:detect(rows)}});
+  for(const {f,rows,kind} of parsed){
+    const fileDates=(f.name.match(/\d{4}-\d{2}-\d{2}/g)||[]);
+    if(!kind){info.push({name:f.name,kind:null,rows:0});continue}
+    const objs=toObjects(rows,KINDS[kind].test);let used=0;
+    if(kind==='production'){for(const o of objs){const id=o['Member Name'];if(!isAgent(id))continue;const a=ag(id);used++;
+      a.ext=o['Member Extension']||a.ext;a.login+=hms(o['Login Time']);a.ready+=hms(o['Ready Time']);a.notready+=hms(o['Not Ready Time']);
+      a.brk+=hms(o['Break Time']);a.lunch+=hms(o['Lunch Time']);a.meet+=hms(o['Meeting Time']);a.query+=hms(o['Query Time']);
+      a.inTot+=num(o['Inbound Total']);a.inAns+=num(o['Inbound Answered']);a.outTot+=num(o['Outbound Total']);a.outAns+=num(o['Outbound Answered']);
+      a.talkIn+=hms(o['Inbound Talk Time']);a.talkOut+=hms(o['Outbound Talk Time'])}
+      if(fileDates.length)dates.add(fileDates[fileDates.length-1]);}
+    else if(kind==='login'){for(const o of objs){const id=o['Member Name'];if(!isAgent(id))continue;const a=ag(id);used++;
+      const li=tod(o['Login Time']),lo=tod(o['Logout Time']);if(o['Work Date'])dates.add(o['Work Date']);
+      if(li!=null&&(a.firstLogin==null||li<a.firstLogin))a.firstLogin=li;
+      if(lo!=null&&dpart(o['Logout Time'])===o['Work Date']&&!/23:59:59/.test(o['Logout Time'])&&(a.lastLogout==null||lo>a.lastLogout))a.lastLogout=lo}}
+    else if(kind==='missed'){for(const o of objs){const id=o['Member Name'];if(!isAgent(id))continue;ag(id).missed++;used++}}
+    else if(kind==='cdr'){for(const o of objs){const id=o['MemberName'];if(!isAgent(id))continue;used++;const a=ag(id);
+      if(!a.hourly)a.hourly=new Array(24).fill(0);const d=o['CallDisposition']||'';const t=tod(o['CallDateTime']);const dd=dpart(o['CallDateTime']);if(dd)dates.add(dd);
+      if(t!=null&&/ANSWERED|TRANSFER/i.test(d))a.hourly[Math.floor(t/3600)]++}}
+    else if(kind==='breaks'){for(const o of objs){if(isAgent(o['Member Name']))used++}}
+    info.push({name:f.name,kind,rows:used});
+  }
+  const ds=[...dates].sort();
+  return{agents:A,files:info,dates:ds,hasCdr:Object.values(A).some(a=>a.hourly)};
+}
+G.CallParse={parseCSV,buildSnapshot,LABEL};
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+<script>
+// ================= helpers =================
+const $=s=>document.querySelector(s);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const hm=s=>{const t=Math.round(s/60),h=Math.floor(t/60),m=t%60;return h+'h '+String(m).padStart(2,'0')+'m'};
+const mm=s=>Math.round(s/60)+'m';
+const ms=s=>{s=Math.round(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const hrs=s=>(s/3600).toFixed(1)+'h';
+const n=x=>Math.round(x).toLocaleString('en-IN');
+const pct=x=>(x*100).toFixed(1)+'%';
+const p2=x=>(x*100).toFixed(2)+'%';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const DATES=RAW.dates;
+const dl=d=>{const t=new Date(d+'T00:00');return t.getDate()+' '+t.toLocaleString('en',{month:'short'})};
+const dlong=d=>new Date(d+'T00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+const rgba=(hex,a)=>{hex=hex.replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const v=parseInt(hex,16);return `rgba(${v>>16&255},${v>>8&255},${v&255},${a})`};
+const sum=a=>a.reduce((t,v)=>t+v,0);
+const dot=c=>`<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};margin-right:6px"></span>`;
+const KIND=t=>`<br><small class="kind">(${t})</small>`;
+
+const TGT={login:7.5*3600,aht:120,brk:30*60,lunch:60*60};
+RAW.agents.forEach(a=>{
+  a.aht=a.handled?a.talk/a.handled:0;a.avgLogin=a.login/a.days;a.hpd=a.handled/a.days;a.tpd=a.talk/a.days;
+  a.oc=a.outTot?a.outAns/a.outTot:0;a.ia=a.inTot?a.inAns/a.inTot:0;a.lost=(a.idle+a.notready)/a.login;
+  a.brkDay=a.brk/a.days;a.lunchDay=a.lunch/a.days;a.talkShare=a.talk/a.login;
+  a.dH=a.dOut.map((v,i)=>v+a.dIn[i]);
+  a.lowLogin=a.dLogin.filter(v=>v>0&&v<TGT.login).length;a.overBrk=a.dBrk.filter(v=>v>TGT.brk).length;a.overLunch=a.dLunch.filter(v=>v>TGT.lunch).length;
+  a.other=Math.max(a.login-(a.ready+a.notready+a.brk+a.lunch+a.meet),0);
+});
+const byId=Object.fromEntries(RAW.agents.map(a=>[a.id,a]));
+const CC_IDS=['Hue1001','Hue1002','Hue1003','Hue1007','Hue1008','Hue1010'];
+const FB_IDS=['Hue1005','Hue1009'];
+
+// ---------- tooltip for HTML minis ----------
+const tip=$('#tip');
+document.addEventListener('mousemove',e=>{const t=e.target.closest('[data-tip]');if(!t){tip.style.display='none';return}
+ tip.innerHTML=t.dataset.tip;tip.style.display='block';const w=tip.offsetWidth;let x=e.clientX+14;if(x+w>innerWidth-8)x=e.clientX-w-14;tip.style.left=x+'px';tip.style.top=(e.clientY+14)+'px'});
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,1800)}
+
+// ---------- mini visuals (HTML/SVG) ----------
+function spark(arr,colorVar,{tipFn}={}){
+ const W=120,H=28,mx=Math.max(...arr,1),N=arr.length;const x=i=>i/(N-1)*W,y=v=>H-2-(v/mx)*(H-4);
+ const pts=arr.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+ const c=`var(${colorVar})`;const last=arr[N-1];
+ const avg=sum(arr)/arr.filter(v=>v>0).length||0,peak=Math.max(...arr),pi=arr.indexOf(peak);
+ const t=tipFn?tipFn():`Peak ${n(peak)} on ${dl(DATES[pi])} · avg ${n(avg)} on working days`;
+ return `<div class="mini" data-tip="${esc(t)}"><svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polygon points="0,${H} ${pts} ${W},${H}" fill="${c}" opacity=".12"/><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><span class="spark-end" style="left:100%;top:${y(last)/H*100}%;background:${c}"></span></div>`;}
+function strip(list,valFn,fmt,{target,targetLbl,sel,higher=true}={}){
+ const vs=list.map(valFn);let lo=Math.min(...vs,target??Infinity),hi=Math.max(...vs,target??-Infinity);if(hi===lo){hi+=1;lo-=1}
+ const pad=(hi-lo)*.06;lo-=pad;hi+=pad;const X=v=>(v-lo)/(hi-lo)*100;
+ const dots=list.map((a,i)=>{const v=vs[i];const ok=target==null?null:(higher?v>=target:v<=target);
+  const col=target==null?'var(--out)':ok?'var(--good)':'var(--bad)';
+  return `<span class="dt${sel&&a.id!==sel&&a.name!==sel?' dim':''}" style="left:${X(v)}%;background:${sel&&a.id!==sel&&a.name!==sel?'var(--c-nr)':col};${sel&&(a.id===sel||a.name===sel)?'width:13px;height:13px;z-index:2':''}" data-tip="${esc(`<b>${a.name}</b> ${fmt(v)}${target!=null?` · ${ok?'meets':'misses'} ${targetLbl}`:''}`)}"></span>`}).join('');
+ const tk=target!=null?`<span class="tk" style="left:${X(target)}%"></span><span class="lbl" style="left:${X(target)}%">${targetLbl}</span>`:'';
+ return `<div class="mini"><div class="strip">${tk}${dots}</div></div>`;}
+
+// ---------- ECharts registry ----------
+const CH=[];
+const visible=el=>!!(el&&el.isConnected&&el.getClientRects().length);
+function chart(el,fn){if(!el)return;const c={el,fn,inst:null,pending:false};CH.push(c);drawChart(c);return c}
+function drawChart(c){
+ if(!window.echarts){c.el.innerHTML='<p class="note" style="padding:24px 0">Charts could not load. Check your internet connection and reload the page; every figure is still in the scorecard table below.</p>';return}
+ if(!c.el.isConnected)return;if(!visible(c.el)){c.pending=true;return}
+ const opt=c.fn(c.el.clientWidth);
+ if(!c.inst)c.inst=echarts.init(c.el,null,{renderer:'svg'});else c.inst.resize();
+ c.inst.setOption(opt,true);c.pending=false;}
+function redrawAll(){for(let i=CH.length-1;i>=0;i--){const c=CH[i];if(!c.el.isConnected){c.inst&&c.inst.dispose();CH.splice(i,1)}else drawChart(c)}}
+function refreshVisible(){CH.forEach(c=>{if(!c.el.isConnected)return;if(c.pending)drawChart(c);else if(c.inst&&visible(c.el))c.inst.resize()})}
+function dropIn(container){for(let i=CH.length-1;i>=0;i--){if(container.contains(CH[i].el)||!CH[i].el.isConnected){CH[i].inst&&CH[i].inst.dispose();CH.splice(i,1)}}}
+let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>CH.forEach(c=>{if(c.inst&&visible(c.el))drawChart(c);else if(c.inst)c.pending=true}),150)});
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',redrawAll);
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+// ---------- ECharts option pieces ----------
+function TT(o={}){return{confine:true,backgroundColor:css('--fg'),borderWidth:0,padding:[7,10],textStyle:{color:css('--bg'),fontFamily:css('--display'),fontSize:12},extraCssText:'border-radius:6px;box-shadow:none;',...o}}
+function BASE(){return{textStyle:{fontFamily:css('--display'),color:css('--fg2')},animationDuration:450,animationDurationUpdate:300,tooltip:TT()}}
+function VAX(fmt,o={}){return{type:'value',axisLine:{show:false},axisTick:{show:false},axisLabel:{color:css('--muted'),fontFamily:css('--mono'),fontSize:10.5,formatter:fmt,hideOverlap:true},splitLine:{lineStyle:{color:css('--grid')}},...o}}
+function CAX(names,o={}){return{type:'category',data:names,inverse:true,axisLine:{show:false},axisTick:{show:false},axisLabel:{color:css('--fg'),fontWeight:600,fontSize:12,fontFamily:css('--display')},...o}}
+function RAX(labels){return{type:'category',data:labels,inverse:true,position:'right',axisLine:{show:false},axisTick:{show:false},axisLabel:{color:css('--fg'),fontFamily:css('--mono'),fontSize:11}}}
+function DAX(o={}){return{type:'category',data:DATES,axisLine:{lineStyle:{color:css('--line')}},axisTick:{show:false},axisLabel:{color:css('--muted'),fontFamily:css('--mono'),fontSize:10.5,formatter:dl,interval:(i)=>i%7===0||i===DATES.length-1},...o}}
+function LEG(names,o={}){return{data:names,top:0,left:0,icon:'roundRect',itemWidth:10,itemHeight:10,itemGap:14,textStyle:{color:css('--fg2'),fontSize:12,fontFamily:css('--display')},...o}}
+const ML=(o)=>({silent:true,symbol:'none',...o});
+const hRows=k=>Math.max(120,k*36+56);
+
+// ---------- tabs ----------
+const TABS=[['tb-day','tab-day'],['tb-cc','tab-cc'],['tb-gx','tab-gx'],['tb-fb','tab-fb']];
+function showTab(id){TABS.forEach(([b,p])=>{const on=b===id;$('#'+b).setAttribute('aria-selected',on);$('#'+p).hidden=!on});try{localStorage.setItem('hueTab4',id)}catch(e){}requestAnimationFrame(refreshVisible)}
+TABS.forEach(([b])=>$('#'+b).addEventListener('click',()=>showTab(b)));
+$('.tabs').addEventListener('keydown',e=>{if(!['ArrowRight','ArrowLeft'].includes(e.key))return;const i=TABS.findIndex(([b])=>b===document.activeElement.id);if(i<0)return;const j=(i+(e.key==='ArrowRight'?1:TABS.length-1))%TABS.length;$('#'+TABS[j][0]).focus();showTab(TABS[j][0])});
+function remember(k,v){try{localStorage.setItem(k,v)}catch(e){}} function recall(k){try{return localStorage.getItem(k)||''}catch(e){return''}}
+function selector(id,list){return `<div class="toolbar"><label for="${id}">View<select id="${id}"><option value="">All agents (team view)</option>${list.map(a=>`<option value="${a.v}">${a.t}</option>`).join('')}</select></label></div>`}
+function seg(id,opts,cur){return `<div class="seg" role="group" id="${id}">${opts.map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${v===cur}">${l}</button>`).join('')}</div>`}
+function bindSeg(id,cb){const g=$('#'+id);g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;g.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));cb(b.dataset.v)})}
+const tgt=ok=>`<span class="cmp ${ok?'up':'dn'}">${ok?'✓ met':'✗ missed'}</span>`;
+function cmp(v,avg,higherGood){if(!avg)return'';const d=(v-avg)/avg;if(Math.abs(d)<0.03)return`<span class="cmp eq">≈ team</span>`;const good=higherGood?d>0:d<0;return`<span class="cmp ${good?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d*100).toFixed(0)}%</span>`}
+
+// ---------- advanced table ----------
+// cols: {g, h, k, v(a), f(a), t (total html), cf(a), bar:true, spark(a), ns}
+function advTable(root,{id,cols,groups,rows,st,total,copyName,isSel}){
+ root.innerHTML=`<div class="tblbar"><div class="chips"><span>Show</span>${groups.filter(g=>g.key).map(g=>`<button type="button" class="chip-t" data-g="${g.key}" aria-pressed="${!st.hide[g.key]}">${g.label}</button>`).join('')}</div><button type="button" class="btn" id="${id}-copy">Copy table</button></div><div class="tw"><table id="${id}"></table></div>`;
+ const tbl=root.querySelector('table');
+ const maxOf={};cols.forEach((c,i)=>{if(c.bar)maxOf[i]=Math.max(...rows.map(c.v),1)});
+ function draw(){
+  const vis=cols.map((c,i)=>({c,i})).filter(({c})=>!c.g||!st.hide[c.g]);
+  const R=[...rows].sort((a,b)=>{const c=cols[st.k];const x=c.v(a),y=c.v(b);return (x>y?1:x<y?-1:0)*st.d});
+  const gr=[];vis.forEach(({c})=>{const g=c.g||'';if(gr.length&&gr[gr.length-1].g===g)gr[gr.length-1].n++;else gr.push({g,n:1})});
+  const first=new Set();let prev=null;vis.forEach(({c,i})=>{if((c.g||'')!==prev&&c.g)first.add(i);prev=c.g||''});
+  const gb=i=>first.has(i)?' gb':'';
+  tbl.innerHTML=`<thead><tr class="g">${gr.map(x=>`<th colspan="${x.n}" class="${x.g?'gb':''}">${(groups.find(g=>g.key===x.g)||{}).label||''}</th>`).join('')}</tr>
+  <tr class="h">${vis.map(({c,i})=>`<th class="${c.ns?'ns':''}${gb(i)}" ${c.ns?'':`tabindex="0" data-i="${i}" aria-sort="${i===st.k?(st.d>0?'ascending':'descending'):'none'}"`}>${c.h}${c.k?KIND(c.k):''}${i===st.k?(st.d>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead>
+  <tbody>${R.map(a=>`<tr class="${isSel&&isSel(a)?'sel':''}">${vis.map(({c,i})=>{const cls=[];let style='';if(c.cf){const r=c.cf(a);if(r)cls.push('cf',r)}if(c.bar){cls.push('bar');style=` style="--w:${Math.max(c.v(a),0)/maxOf[i]}"`}if(first.has(i))cls.push('gb');
+   return `<td class="${cls.join(' ')}"${style}>${c.spark?c.spark(a):c.f(a)}</td>`}).join('')}</tr>`).join('')}
+  ${total?`<tr class="tot">${vis.map(({c,i})=>`<td class="${first.has(i)?'gb':''}">${i===0?total:(c.t??'')}</td>`).join('')}</tr>`:''}</tbody>`;}
+ tbl.addEventListener('click',e=>{const th=e.target.closest('th[data-i]');if(!th)return;const i=+th.dataset.i;st.d=i===st.k?-st.d:-1;st.k=i;draw()});
+ tbl.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('th[data-i]'))e.target.click()});
+ root.querySelector('.chips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;st.hide[b.dataset.g]=!st.hide[b.dataset.g];b.setAttribute('aria-pressed',!st.hide[b.dataset.g]);draw()});
+ root.querySelector('#'+id+'-copy').addEventListener('click',()=>{
+  const vis=cols.filter(c=>(!c.g||!st.hide[c.g])&&!c.spark);
+  const txt=h=>{const d=document.createElement('div');d.innerHTML=h;return d.textContent.trim()};
+  const R=[...rows].sort((a,b)=>{const c=cols[st.k];const x=c.v(a),y=c.v(b);return (x>y?1:x<y?-1:0)*st.d});
+  const tsv=[vis.map(c=>c.h+(c.k?` (${c.k})`:'')).join('\t'),...R.map(a=>vis.map(c=>txt(c.f(a))).join('\t'))].join('\n');
+  const done=()=>toast(`Copied ${R.length} rows — paste into Excel or Sheets`);
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=tsv;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();ok?done():toast('Copy is blocked here. Select the table and copy it instead.')};
+  try{navigator.clipboard.writeText(tsv).then(done,fallback)}catch(e){fallback()}});
+ draw();return{draw};
+}
+function sparkCell(arr,colorVar,label){const W=90,H=22,mx=Math.max(...arr,1),N=arr.length;const pts=arr.map((v,i)=>`${(i/(N-1)*W).toFixed(1)},${(H-2-v/mx*(H-4)).toFixed(1)}`).join(' ');
+ const peak=Math.max(...arr),pi=arr.indexOf(peak);
+ return `<svg class="sp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" data-tip="${esc(`<b>${label}</b><br>Peak ${n(peak)} on ${dl(DATES[pi])}<br>Avg ${n(sum(arr)/Math.max(arr.filter(v=>v).length,1))} per working day`)}" role="img" aria-label="Daily trend"><polyline points="${pts}" fill="none" stroke="var(${colorVar})" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`}
+
+// ================= CALL TAB (Customer Champion + Feedback) =================
+function callTab(root,ids,cfg){
+ const A=ids.map(i=>byId[i]);const P=cfg.p;const st={sel:'',split:'pct',calls:'calls',heat:'calls'};
+ const S=k=>sum(A.map(a=>a[k]));
+ const T={talk:S('talk'),talkIn:S('talkIn'),talkOut:S('talkOut'),handled:S('handled'),inAns:S('inAns'),outAns:S('outAns'),brk:S('brk'),lunch:S('lunch'),meet:S('meet'),login:S('login'),days:S('days'),missed:S('missed'),idle:S('idle'),notready:S('notready'),inTot:S('inTot'),outTot:S('outTot'),ready:S('ready')};
+ const teamAht=T.talk/T.handled,teamOC=T.outAns/T.outTot;
+ const AVG=k=>sum(A.map(a=>a[k]))/A.length;
+ const op=a=>st.sel&&a.id!==st.sel?0.25:1;
+ // ranking
+ const W=[{w:25,lab:'Calls handled per day',f:a=>a.hpd,up:1},{w:25,lab:'Talk time per day',f:a=>a.tpd,up:1},{w:15,lab:'Outbound connect rate',f:a=>a.oc,up:1},{w:15,lab:'Inbound answer rate',f:a=>a.ia,up:1},{w:20,lab:'Idle + Not Ready share of login (lower is better)',f:a=>a.lost,up:0}];
+ if(cfg.score){A.forEach(a=>a.score=0);W.forEach(m=>{const v=A.map(m.f),lo=Math.min(...v),hi=Math.max(...v);A.forEach(a=>{const x=(m.f(a)-lo)/(hi-lo||1);a.score+=m.w*(m.up?x:1-x)})});[...A].sort((a,b)=>b.score-a.score).forEach((a,i)=>a.rank=i+1)}
+ const best=cfg.score?A.find(a=>a.rank===1):null,worst=cfg.score?A.find(a=>a.rank===A.length):null;
+ // daily team series
+ const tOut=DATES.map((_,i)=>sum(A.map(a=>a.dOut[i]))),tIn=DATES.map((_,i)=>sum(A.map(a=>a.dIn[i])));
+ const tLoginAvg=DATES.map((_,i)=>{const L=A.filter(a=>a.dLogin[i]>0);return L.length?sum(L.map(a=>a.dLogin[i]))/L.length:0});
+ const tBLAvg=DATES.map((_,i)=>{const L=A.filter(a=>a.dLogin[i]>0);return L.length?sum(L.map(a=>a.dBrk[i]+a.dLunch[i]))/L.length:0});
+ const wide=cfg.p==='cc';
+
+ root.innerHTML=selector(P+'-sel',A.map(a=>({v:a.id,t:`${a.name} (${a.id})`})))+
+ `<p class="excl">${cfg.scope}</p>
+ <section class="targets" id="${P}-tg"></section>
+ <div id="${P}-ind"></div>
+ <section class="kpis" id="${P}-kpis"></section>
+ ${cfg.score?`<section class="pw" id="${P}-perf"></section>`:''}
+ <section class="grid2">
+  <div class="card wide"><div class="chead"><h2><span class="qn">Q8 · Q3 · Q6</span>Where the logged-in time goes <span class="kind">(Total)</span></h2>${seg(P+'-split',[['pct','% of time'],['hrs','Hours']],'pct')}</div><div class="chart" id="${P}-c-split"></div>
+   <p class="note"><b>Idle</b> = Ready with no call connected (waiting, dialling, ringing). <b>Not Ready</b> = logged in but switched off from calls. Shares are of all status time in the Production report; agents are sorted by talk share.</p></div>
+  <div class="card"><div class="chead"><h2><span class="qn">Q5 · Q1 · Q9</span>Calls and talk time <span class="kind">(Total)</span></h2>${seg(P+'-calls',[['calls','Calls handled'],['talk','Talk time']],'calls')}</div><div class="chart" id="${P}-c-calls"></div></div>
+  <div class="card"><h2><span class="qn">Q9</span>Outbound volume vs connect rate <span class="kind">(Total · Rate)</span></h2><div class="chart" id="${P}-c-sc"></div><p class="note">Bubble size = outbound calls connected. Dashed line = team connect rate.</p></div>
+  <div class="card"><h2><span class="qn">Q2</span>Average handle time vs target <span class="kind">(Avg/call)</span></h2><div class="chart" id="${P}-c-aht"></div><p class="note">AHT = talk time ÷ calls handled. Green meets the 2:00 target.</p></div>
+  <div class="card"><h2><span class="qn">Q4</span>Logged-in time vs target <span class="kind">(Avg/day)</span></h2><div class="chart" id="${P}-c-login"></div><p class="note">Grey band = 7h 30m target. Right column: average · days under target.</p></div>
+  <div class="card wide"><h2><span class="qn">Q3 · Q6</span>Break and lunch vs limits <span class="kind">(Avg/day)</span></h2><div class="chart" id="${P}-c-bl"></div><p class="note">Right columns: average per logged-in day · number of days over the limit. Averages can hide individual days, so check the heatmap below.</p></div>
+  <div class="card wide"><div class="chead"><h2><span class="qn">Daily</span>Day-by-day heatmap <span class="kind">(Daily)</span></h2>${seg(P+'-heat',[['calls','Calls handled'],['login','Login hours'],['break','Break'],['lunch','Lunch']],'calls')}</div><div class="chart" id="${P}-c-heat"></div><p class="note" id="${P}-heat-note"></p></div>
+  <div class="card"><h2><span class="qn">Q7</span>Missed inbound calls <span class="kind">(Total)</span></h2><div class="chart" id="${P}-c-missed"></div><p class="note">From the Missed Calls report. Right column: missed · share of inbound answered.</p></div>
+  <div class="card"><h2><span class="qn">Q9</span>Team calls per day <span class="kind">(Daily)</span></h2><div class="chart" id="${P}-c-trend"></div><p class="note">Drag the slider or scroll on the chart to zoom into a date range.</p></div>
+  ${cfg.extra||''}
+ </section>
+ <section class="card"><h2><span class="qn">All</span>Agent scorecard</h2>
+  <div class="cfkey"><span class="k" style="background:var(--goodbg);color:var(--good)">Meets target / 0 days</span><span class="k" style="background:var(--warnbg);color:var(--warn)">1–3 days off</span><span class="k" style="background:var(--badbg);color:var(--bad)">Misses target / 4+ days</span><span>Targets: login 7h 30m/day · AHT 2:00 · break 30m/day · lunch 1h/day. Thin bars under a number show its size against the highest agent.</span></div>
+  <div id="${P}-tblwrap"></div></section>
+ ${cfg.score?`<section class="card"><h2><span class="qn">Q10</span>How the ranking works</h2><div class="method">${W.map(m=>`<p><b>${m.w}% · ${m.lab}.</b> Agents are scaled from the team's lowest (0) to highest (${m.w}) on this measure${m.up?'':', reversed'}.</p>`).join('')}<p><b>Rank.</b> The weighted points are added up and agents are ranked 1 (best) to ${A.length}.</p></div></section>`:''}`;
+
+ // ---- targets ----
+ const tg=[['Login time','7h 30m per day',a=>a.avgLogin,TGT.login,hm,true,'7h 30m'],['AHT','2:00 per call',a=>a.aht,TGT.aht,ms,true,'2:00'],['Break','30 min per day',a=>a.brkDay,TGT.brk,hm,false,'30m'],['Lunch','1 hour per day',a=>a.lunchDay,TGT.lunch,hm,false,'1h']];
+ function drawTargets(){$('#'+P+'-tg').innerHTML=tg.map(([l,v,f,t,fmt,hi,tl])=>{const met=A.filter(a=>hi?f(a)>=t:f(a)<=t);const miss=A.filter(a=>!met.includes(a));
+  return `<div class="tgc ${met.length===A.length?'ok':met.length===0?'bad':'warn'}"><span class="q">Target · ${l}</span><span class="v">${v}</span><span class="d">${hi?'at least':'at most'} · <b>${met.length} of ${A.length}</b> agents meet it</span><span class="d">${miss.length?'Missed by: '+miss.map(a=>a.name).join(', '):'Everyone meets it'}</span>${strip(A,f,fmt,{target:t,targetLbl:tl,sel:st.sel,higher:hi})}</div>`}).join('')}
+ // ---- KPIs ----
+ function drawKpis(){const K=[
+  ['Q1 · Talk time (Total)',hm(T.talk),`${hm(T.talkOut)} out · ${hm(T.talkIn)} in`,strip(A,a=>a.talk,hm,{sel:st.sel})],
+  ['Q2 · AHT (Avg/call)',ms(teamAht),`target 2:00 · range ${ms(Math.min(...A.map(a=>a.aht)))}–${ms(Math.max(...A.map(a=>a.aht)))}`,strip(A,a=>a.aht,ms,{target:TGT.aht,targetLbl:'2:00',sel:st.sel})],
+  ['Q5 · Calls handled (Total)',n(T.handled),`of ${n(T.inTot+T.outTot)} attempted · daily trend`,spark(DATES.map((_,i)=>tOut[i]+tIn[i]),'--out')],
+  ['Q9 · Outbound / Inbound (Total)',`${n(T.outAns)} / ${n(T.inAns)}`,`connect ${pct(teamOC)} · answer ${pct(T.inAns/T.inTot)}`,spark(tIn,'--in',{tipFn:()=>`Inbound answered per day · peak ${n(Math.max(...tIn))}`})],
+  ['Q3 · Q6 · Break + lunch (Total)',hrs(T.brk+T.lunch),`break ${hrs(T.brk)} · lunch ${hrs(T.lunch)} · ${mm((T.brk+T.lunch)/T.days)}/day`,spark(tBLAvg,'--c-brk',{tipFn:()=>`Average break + lunch per logged-in agent per day · peak ${mm(Math.max(...tBLAvg))}`})],
+  ['Q4 · Logged in (Avg/day)',hm(T.login/T.days),`${n(T.days)} agent-days · daily average`,spark(tLoginAvg,'--c-talk',{tipFn:()=>`Average login per logged-in agent per day · lowest ${hm(Math.min(...tLoginAvg.filter(v=>v)))}`})],
+  ['Q7 · Missed calls (Total)',n(T.missed),'inbound calls that rang an agent',strip(A,a=>a.missed,n,{sel:st.sel})],
+  ['Q8 · Idle hours (Total)',hrs(T.idle),`plus ${hrs(T.notready)} in Not Ready`,strip(A,a=>a.idle,hm,{sel:st.sel})]];
+  $('#'+P+'-kpis').innerHTML=K.map(([q,v,d,viz])=>`<div class="kpi"><span class="q">${q}</span><span class="v">${v}</span><span class="d">${d}</span>${viz}</div>`).join('')}
+ if(cfg.score){const why=a=>[`${a.hpd.toFixed(1)} calls handled per day (team ${(T.handled/T.days).toFixed(1)})`,`${hm(a.tpd)} talk time per day (team ${hm(T.talk/T.days)})`,`Outbound connect ${pct(a.oc)} · inbound answered ${pct(a.ia)}`,`${pct(a.lost)} of login spent idle or Not Ready`,`AHT ${ms(a.aht)} · ${a.missed} missed calls`].map(r=>`<li>${r}</li>`).join('');
+  $('#'+P+'-perf').innerHTML=[[best,'Best performer',''],[worst,'Needs attention','worst']].map(([a,t,c])=>`<div class="card perf ${c}"><span class="tag">Q10 · ${t}</span><div class="who"><span class="name">${a.name}</span><span class="score">${a.id} · rank ${a.rank} of ${A.length}</span></div><ul>${why(a)}</ul></div>`).join('')}
+
+ // ---- charts ----
+ const SEG=[['Talk','--c-talk',a=>a.talk],['Idle','--c-idle',a=>a.idle],['Not Ready','--c-nr',a=>a.notready],['Lunch','--c-lunch',a=>a.lunch],['Break','--c-brk',a=>a.brk],['Meeting / query','--c-meet',a=>a.meet],['Other','--c-other',a=>a.other]];
+ const tracked=a=>sum(SEG.map(s=>s[2](a)));
+ chart($('#'+P+'-c-split'),()=>{const L=[...A].sort((x,y)=>y.talk/tracked(y)-x.talk/tracked(x));const P_=st.split==='pct';$('#'+P+'-c-split').style.height=hRows(L.length)+20+'px';
+  return{...BASE(),legend:LEG(SEG.map(s=>s[0])),grid:{left:4,right:16,top:36,bottom:4,containLabel:true},
+  tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const a=L[ps[0].dataIndex],tt=tracked(a);return `<b>${a.name}</b> · logged in ${hm(a.login)}<br>`+SEG.map(s=>`${dot(css(s[1]))}${s[0]}: <b>${hm(s[2](a))}</b> · ${pct(s[2](a)/tt)}`).join('<br>')}}),
+  xAxis:VAX(v=>P_?v+'%':Math.round(v/3600)+'h',P_?{max:100,interval:20}:{}),yAxis:CAX(L.map(a=>a.name)),
+  series:SEG.map((s,si)=>({name:s[0],type:'bar',stack:'t',barWidth:20,itemStyle:{color:css(s[1]),borderColor:css('--panel'),borderWidth:1,borderRadius:si===SEG.length-1?[0,4,4,0]:0},emphasis:{focus:'series'},
+   label:{show:si<3,position:'inside',formatter:p=>{const a=L[p.dataIndex],sh=s[2](a)/tracked(a);return sh>=.09?(P_?Math.round(sh*100)+'%':Math.round(s[2](a)/3600)+'h'):''},color:si===2?css('--fg'):'#fff',fontSize:10.5,fontFamily:css('--mono')},
+   data:L.map(a=>({value:P_?s[2](a)/tracked(a)*100:s[2](a),itemStyle:{opacity:op(a)}}))}))}});
+ bindSeg(P+'-split',v=>{st.split=v;redrawId(P+'-c-split')});
+
+ chart($('#'+P+'-c-calls'),()=>{const talk=st.calls==='talk';const f=talk?[a=>a.talkOut,a=>a.talkIn]:[a=>a.outAns,a=>a.inAns];const fmt=talk?hm:n;const L=[...A].sort((x,y)=>f[0](y)+f[1](y)-f[0](x)-f[1](x));
+  $('#'+P+'-c-calls').style.height=hRows(L.length)+'px';const nm=talk?['Outbound talk','Inbound talk']:['Outbound connected','Inbound answered'];
+  return{...BASE(),legend:LEG(nm),grid:{left:4,right:16,top:36,bottom:4,containLabel:true},
+  tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const a=L[ps[0].dataIndex];return talk?`<b>${a.name}</b><br>${dot(css('--out'))}Outbound ${hm(a.talkOut)}<br>${dot(css('--in'))}Inbound ${hm(a.talkIn)}<br>Total ${hm(a.talk)} · ${hm(a.tpd)} per day`:`<b>${a.name}</b><br>${dot(css('--out'))}Outbound ${n(a.outAns)} of ${n(a.outTot)} dialled (${pct(a.oc)})<br>${dot(css('--in'))}Inbound ${n(a.inAns)} of ${n(a.inTot)} (${pct(a.ia)})<br>Total ${n(a.handled)} · ${a.hpd.toFixed(1)} per day`}}),
+  xAxis:VAX(v=>talk?Math.round(v/3600)+'h':n(v)),yAxis:[CAX(L.map(a=>a.name)),RAX(L.map(a=>fmt(f[0](a)+f[1](a))))],
+  series:[0,1].map(k=>({name:nm[k],type:'bar',stack:'c',barWidth:18,itemStyle:{color:css(k?'--in':'--out'),borderColor:css('--panel'),borderWidth:1,borderRadius:k?[0,4,4,0]:0},emphasis:{focus:'series'},data:L.map(a=>({value:f[k](a),itemStyle:{opacity:op(a)}}))}))}});
+ bindSeg(P+'-calls',v=>{st.calls=v;redrawId(P+'-c-calls')});
+
+ chart($('#'+P+'-c-sc'),()=>{const mx=Math.max(...A.map(a=>a.outAns));$('#'+P+'-c-sc').style.height=(A.length>3?300:220)+'px';
+  return{...BASE(),grid:{left:8,right:60,top:20,bottom:30,containLabel:true},tooltip:TT({trigger:'item',formatter:p=>{const a=A[p.dataIndex];return `<b>${a.name}</b><br>Dialled ${n(a.outTot)}<br>Connected ${n(a.outAns)} (${pct(a.oc)})<br>Team rate ${pct(teamOC)}`}}),
+  xAxis:VAX(n,{scale:true,name:'Outbound dialled',nameLocation:'middle',nameGap:28,nameTextStyle:{color:css('--muted'),fontSize:11}}),yAxis:VAX(v=>v+'%',{scale:true}),
+  series:[{type:'scatter',data:A.map(a=>({name:a.name,value:[a.outTot,+(a.oc*100).toFixed(1)],symbolSize:14+22*Math.sqrt(a.outAns/mx),itemStyle:{color:rgba(css('--out'),.8),borderColor:css('--panel'),borderWidth:2,opacity:op(a)}})),
+   label:{show:true,position:'right',formatter:p=>p.name,color:css('--fg'),fontSize:11.5,fontWeight:600},labelLayout:{moveOverlap:'shiftY'},emphasis:{scale:1.15},
+   markLine:ML({lineStyle:{color:css('--fg2'),type:'dashed',width:1},label:{formatter:'Team '+pct(teamOC),position:'insideEndTop',color:css('--fg2'),fontSize:10.5},data:[{yAxis:+(teamOC*100).toFixed(1)}]})}]}});
+
+ chart($('#'+P+'-c-aht'),()=>{const L=[...A].sort((x,y)=>y.aht-x.aht);$('#'+P+'-c-aht').style.height=hRows(L.length)+'px';const mx=Math.max(TGT.aht,...L.map(a=>a.aht))*1.12;
+  return{...BASE(),grid:{left:4,right:20,top:30,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const a=L[ps[0].dataIndex];return `<b>${a.name}</b><br>AHT ${ms(a.aht)} · target 2:00 (${a.aht>=TGT.aht?'met':'short by '+ms(TGT.aht-a.aht)})<br>Team ${ms(teamAht)} · ${hm(a.talk)} over ${n(a.handled)} calls`}}),
+  xAxis:VAX(ms,{max:Math.ceil(mx/30)*30,min:0,interval:30}),yAxis:[CAX(L.map(a=>a.name)),RAX(L.map(a=>ms(a.aht)))],
+  series:[{type:'bar',barWidth:2,silent:true,data:L.map(a=>({value:a.aht,itemStyle:{color:css('--c-nr'),opacity:op(a)}}))},
+   {type:'scatter',symbolSize:14,data:L.map(a=>({value:[a.aht,a.name],itemStyle:{color:css(a.aht>=TGT.aht?'--good':'--bad'),borderColor:css('--panel'),borderWidth:2,opacity:op(a)}})),
+    markLine:ML({data:[{xAxis:TGT.aht,lineStyle:{color:css('--fg'),type:'dashed',width:1.5},label:{formatter:'Target 2:00',position:'start',color:css('--fg2'),fontSize:10.5}},{xAxis:teamAht,lineStyle:{color:css('--muted'),type:'dotted',width:1.5},label:{formatter:'Team '+ms(teamAht),position:'start',color:css('--muted'),fontSize:10.5}}]})}]}});
+
+ chart($('#'+P+'-c-login'),()=>{const L=[...A].sort((x,y)=>y.avgLogin-x.avgLogin);$('#'+P+'-c-login').style.height=hRows(L.length)+'px';
+  return{...BASE(),grid:{left:4,right:20,top:30,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const a=L[ps[0].dataIndex];return `<b>${a.name}</b><br>${hm(a.avgLogin)} per day over ${a.days} days<br>Target 7h 30m · ${a.avgLogin>=TGT.login?'met':'short by '+hm(TGT.login-a.avgLogin)}<br>${a.lowLogin} days under target`}}),
+  xAxis:VAX(v=>v/3600+'h',{max:10*3600,min:0,interval:7200}),yAxis:[CAX(L.map(a=>a.name)),RAX(L.map(a=>`${hm(a.avgLogin)} · ${a.lowLogin}d`))],
+  series:[{type:'bar',barWidth:22,silent:true,barGap:'-100%',z:1,data:L.map(()=>TGT.login),itemStyle:{color:css('--grid'),borderRadius:3}},
+   {type:'bar',barWidth:8,z:2,data:L.map(a=>({value:a.avgLogin,itemStyle:{color:css(a.avgLogin>=TGT.login?'--good':'--bad'),opacity:op(a),borderRadius:[0,4,4,0]}})),
+    markLine:ML({data:[{xAxis:TGT.login}],lineStyle:{color:css('--fg'),width:2,type:'solid'},label:{formatter:'Target 7h 30m',position:'start',color:css('--fg2'),fontSize:10.5}})}]}});
+
+ chart($('#'+P+'-c-bl'),(w)=>{const L=[...A].sort((x,y)=>x.name.localeCompare(y.name));const narrow=w<640;const rows=L.length;const ch=rows*34+40;
+  $('#'+P+'-c-bl').style.height=(narrow?ch*2+20:ch)+'px';
+  const g0=narrow?{left:4,right:12,top:28,height:ch-40,containLabel:true}:{left:4,width:'45%',top:28,bottom:4,containLabel:true};
+  const g1=narrow?{left:4,right:12,top:ch+48,height:ch-40,containLabel:true}:{left:'53%',right:12,top:28,bottom:4,containLabel:true};
+  const mk=(key,lim,col,gi,lbl)=>({type:'bar',xAxisIndex:gi,yAxisIndex:gi*2,barWidth:14,data:L.map(a=>({value:a[key]/60,itemStyle:{color:css(col),opacity:op(a),borderRadius:[0,4,4,0]}})),
+   markLine:ML({data:[{xAxis:lim/60}],lineStyle:{color:css('--fg'),width:2,type:'solid'},label:{formatter:lbl,position:'start',color:css('--fg2'),fontSize:10.5}})});
+  return{...BASE(),title:[{text:'Break · limit 30m per day',left:0,top:0,textStyle:{fontSize:12,fontWeight:600,color:css('--fg')}},{text:'Lunch · limit 1h per day',left:narrow?0:'53%',top:narrow?ch+20:0,textStyle:{fontSize:12,fontWeight:600,color:css('--fg')}}],
+  grid:[g0,g1],tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const a=L[ps[0].dataIndex];const b=ps[0].seriesIndex===0;return b?`<b>${a.name}</b> · break<br>${hm(a.brkDay)} per day (limit 30m)<br>Over 30m on ${a.overBrk} of ${a.days} days<br>Total ${hm(a.brk)}`:`<b>${a.name}</b> · lunch<br>${hm(a.lunchDay)} per day (limit 1h)<br>Over 1h on ${a.overLunch} of ${a.days} days<br>Total ${hm(a.lunch)}`}}),
+  xAxis:[VAX(v=>v+'m',{gridIndex:0,min:0,max:40,interval:10}),VAX(v=>v+'m',{gridIndex:1,min:0,max:70,interval:15})],
+  yAxis:[CAX(L.map(a=>a.name),{gridIndex:0}),{...RAX(L.map(a=>`${mm(a.brkDay)} · ${a.overBrk}d over`)),gridIndex:0},CAX(L.map(a=>a.name),{gridIndex:1}),{...RAX(L.map(a=>`${mm(a.lunchDay)} · ${a.overLunch}d over`)),gridIndex:1}],
+  series:[mk('brkDay',TGT.brk,'--c-brk',0,'30m'),mk('lunchDay',TGT.lunch,'--c-lunch',1,'1h')]}});
+
+ const heatNote={calls:'Darker = more calls handled that day (inbound answered + outbound connected). Blank = not logged in.',login:'Red = under 7h 30m · green = on target · amber = over 12h, usually a session left logged in. Blank = not logged in.',break:'Green = within 30m · red = over 30m · grey = no break taken. Blank = not logged in.',lunch:'Green = within 1h · red = over 1h · grey = no lunch taken. Blank = not logged in.'};
+ chart($('#'+P+'-c-heat'),(w)=>{const m=st.heat;const L=[...A].sort((x,y)=>x.name.localeCompare(y.name));$('#'+P+'-c-heat').style.height=(L.length*30+96)+'px';$('#'+P+'-heat-note').textContent=heatNote[m];
+  const val=(a,i)=>m==='calls'?a.dH[i]:m==='login'?a.dLogin[i]:m==='break'?a.dBrk[i]:a.dLunch[i];
+  const data=[];L.forEach((a,j)=>DATES.forEach((d,i)=>{if(a.dLogin[i]===0&&a.dH[i]===0)return;data.push({value:[i,j,val(a,i)],itemStyle:{opacity:st.sel&&a.id!==st.sel?.3:1}})}));
+  const fmtV=v=>m==='calls'?n(v)+' calls':hm(v);
+  const vm=m==='calls'?{type:'continuous',min:0,max:Math.max(...data.map(d=>d.value[2])),inRange:{color:[css('--seq0'),css('--seq1')]},orient:'horizontal',left:0,bottom:0,itemWidth:10,itemHeight:140,text:['More','Fewer'],textStyle:{color:css('--muted'),fontSize:11},calculable:false,realtime:false}
+   :{type:'piecewise',orient:'horizontal',left:0,bottom:0,itemWidth:12,itemHeight:12,textStyle:{color:css('--fg2'),fontSize:11.5},
+     pieces:m==='login'?[{lt:TGT.login,label:'Under 7h 30m',color:css('--hm-bad')},{gte:TGT.login,lte:43200,label:'7h 30m – 12h',color:css('--hm-good')},{gt:43200,label:'Over 12h',color:css('--hm-warn')}]
+      :[{value:0,label:'None taken',color:css('--hm-none')},{gt:0,lte:m==='break'?TGT.brk:TGT.lunch,label:m==='break'?'Within 30m':'Within 1h',color:css('--hm-good')},{gt:m==='break'?TGT.brk:TGT.lunch,label:m==='break'?'Over 30m':'Over 1h',color:css('--hm-bad')}]};
+  return{...BASE(),grid:{left:4,right:8,top:6,bottom:44,containLabel:true},tooltip:TT({trigger:'item',formatter:p=>{const a=L[p.value[1]],i=p.value[0];return `<b>${a.name}</b> · ${dlong(DATES[i])}<br>${m==='calls'?`${n(a.dH[i])} handled (${n(a.dOut[i])} out · ${n(a.dIn[i])} in)`:m==='login'?`Logged in ${hm(a.dLogin[i])}`:m==='break'?`Break ${hm(a.dBrk[i])}`:`Lunch ${hm(a.dLunch[i])}`}`}}),
+  xAxis:DAX({splitArea:{show:false}}),yAxis:CAX(L.map(a=>a.name),{inverse:true}),visualMap:vm,
+  series:[{type:'heatmap',data,itemStyle:{borderColor:css('--panel'),borderWidth:2,borderRadius:3},emphasis:{itemStyle:{borderColor:css('--fg'),borderWidth:1.5}},progressive:0}]}});
+ bindSeg(P+'-heat',v=>{st.heat=v;redrawId(P+'-c-heat')});
+
+ chart($('#'+P+'-c-missed'),()=>{const L=[...A].sort((x,y)=>y.missed-x.missed);$('#'+P+'-c-missed').style.height=hRows(L.length)+'px';
+  return{...BASE(),grid:{left:4,right:20,top:20,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const a=L[ps[0].dataIndex];return `<b>${a.name}</b><br>${n(a.missed)} missed calls<br>Inbound answered ${n(a.inAns)} of ${n(a.inTot)} (${pct(a.ia)})`}}),
+  xAxis:VAX(n,{min:0}),yAxis:[CAX(L.map(a=>a.name)),RAX(L.map(a=>`${n(a.missed)} · ${Math.round(a.ia*100)}% ans.`))],
+  series:[{type:'bar',barWidth:16,data:L.map(a=>({value:a.missed,itemStyle:{color:css('--in'),opacity:op(a),borderRadius:[0,4,4,0]}}))}]}});
+
+ chart($('#'+P+'-c-trend'),()=>{$('#'+P+'-c-trend').style.height='300px';const ao=css('--out'),ai=css('--in');const avg=sum(tOut)/tOut.filter(v=>v).length;
+  const area=c=>({color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:rgba(c,.28)},{offset:1,color:rgba(c,0)}])});
+  return{...BASE(),legend:LEG(['Outbound connected','Inbound answered']),grid:{left:4,right:16,top:36,bottom:44,containLabel:true},
+  tooltip:TT({trigger:'axis',axisPointer:{type:'line',lineStyle:{color:css('--fg2'),type:'dashed'}},formatter:ps=>{const i=ps[0].dataIndex;return `<b>${dlong(DATES[i])}</b><br>${dot(ao)}Outbound connected ${n(tOut[i])}<br>${dot(ai)}Inbound answered ${n(tIn[i])}<br>Total ${n(tOut[i]+tIn[i])}`}}),
+  xAxis:DAX({boundaryGap:false}),yAxis:VAX(n,{min:0}),
+  dataZoom:[{type:'inside',zoomOnMouseWheel:'shift',moveOnMouseWheel:false},{type:'slider',height:18,bottom:4,borderColor:css('--line'),fillerColor:rgba(ao,.12),backgroundColor:'transparent',dataBackground:{lineStyle:{color:css('--c-nr')},areaStyle:{color:css('--grid')}},selectedDataBackground:{lineStyle:{color:ao},areaStyle:{color:rgba(ao,.2)}},handleStyle:{color:css('--panel'),borderColor:css('--fg2')},moveHandleStyle:{color:css('--line')},textStyle:{color:css('--muted'),fontSize:10.5},labelFormatter:(v,s)=>dl(s)}],
+  series:[{name:'Outbound connected',type:'line',data:tOut,showSymbol:false,symbolSize:7,lineStyle:{width:2,color:ao},itemStyle:{color:ao},areaStyle:area(ao),
+    markPoint:{symbol:'circle',symbolSize:9,itemStyle:{color:ao,borderColor:css('--panel'),borderWidth:2},label:{show:true,position:'top',formatter:p=>'Peak '+n(p.value),color:css('--fg'),fontSize:10.5,fontFamily:css('--mono')},data:[{type:'max'}]},
+    markLine:ML({data:[{yAxis:avg}],lineStyle:{color:css('--muted'),type:'dotted'},label:{formatter:'Avg '+n(avg)+'/working day',position:'insideEndTop',color:css('--muted'),fontSize:10.5}})},
+   {name:'Inbound answered',type:'line',data:tIn,showSymbol:false,symbolSize:7,lineStyle:{width:2,color:ai},itemStyle:{color:ai},areaStyle:area(ai)}]}});
+
+ if(cfg.afterCharts)cfg.afterCharts(A,st,op);
+
+ // ---- scorecard table ----
+ const tst={k:cfg.score?2:3,d:cfg.score?1:-1,hide:{}};
+ const cfMin=(v,t)=>v>=t?'ok':'bad',cfMax=(v,t)=>v<=t?'ok':'bad',cfDays=v=>v===0?'ok':v<=3?'warn':'bad';
+ const S2=k=>sum(A.map(a=>a[k]));
+ const cols=[
+  {h:'Agent',v:a=>a.name,f:a=>a.name+(best&&a===best?'<span class="chip b">BEST</span>':worst&&a===worst?'<span class="chip w">LOW</span>':'')},
+  {h:'ID',v:a=>a.id,f:a=>a.id,t:''},
+  ...(cfg.score?[{h:'Rank',v:a=>a.rank,f:a=>a.rank,t:''}]:[]),
+  {g:'att',h:'Days',k:'Total',v:a=>a.days,f:a=>a.days,t:n(T.days)},
+  {g:'att',h:'Login time',k:'Avg/day',v:a=>a.avgLogin,f:a=>hm(a.avgLogin),cf:a=>cfMin(a.avgLogin,TGT.login),t:hm(T.login/T.days)},
+  {g:'att',h:'Days under 7h 30m',k:'Total',v:a=>a.lowLogin,f:a=>a.lowLogin,cf:a=>cfDays(a.lowLogin),t:S2('lowLogin')},
+  {g:'calls',h:'Handled',k:'Total',v:a=>a.handled,f:a=>n(a.handled),bar:1,t:n(T.handled)},
+  {g:'calls',h:'Daily calls',k:'Trend',ns:1,v:a=>0,f:a=>'',spark:a=>sparkCell(a.dH,'--out',a.name+' · calls handled per day')},
+  {g:'calls',h:'Talk time',k:'Total',v:a=>a.talk,f:a=>hm(a.talk),bar:1,t:hm(T.talk)},
+  {g:'calls',h:'AHT',k:'Avg/call',v:a=>a.aht,f:a=>ms(a.aht),cf:a=>cfMin(a.aht,TGT.aht),t:ms(teamAht)},
+  {g:'calls',h:'Out dialled',k:'Total',v:a=>a.outTot,f:a=>n(a.outTot),t:n(T.outTot)},
+  {g:'calls',h:'Out connected',k:'Total',v:a=>a.outAns,f:a=>n(a.outAns),t:n(T.outAns)},
+  {g:'calls',h:'Connect %',k:'Rate',v:a=>a.oc,f:a=>pct(a.oc),t:pct(teamOC)},
+  {g:'calls',h:'In received',k:'Total',v:a=>a.inTot,f:a=>n(a.inTot),t:n(T.inTot)},
+  {g:'calls',h:'In answered',k:'Total',v:a=>a.inAns,f:a=>n(a.inAns),t:n(T.inAns)},
+  {g:'calls',h:'Missed',k:'Total',v:a=>a.missed,f:a=>n(a.missed),bar:1,t:n(T.missed)},
+  {g:'brk',h:'Break',k:'Total',v:a=>a.brk,f:a=>hm(a.brk),t:hm(T.brk)},
+  {g:'brk',h:'Break',k:'Avg/day',v:a=>a.brkDay,f:a=>hm(a.brkDay),cf:a=>cfMax(a.brkDay,TGT.brk),t:hm(T.brk/T.days)},
+  {g:'brk',h:'Days break over 30m',k:'Total',v:a=>a.overBrk,f:a=>a.overBrk,cf:a=>cfDays(a.overBrk),t:S2('overBrk')},
+  {g:'brk',h:'Lunch',k:'Total',v:a=>a.lunch,f:a=>hm(a.lunch),t:hm(T.lunch)},
+  {g:'brk',h:'Lunch',k:'Avg/day',v:a=>a.lunchDay,f:a=>hm(a.lunchDay),cf:a=>cfMax(a.lunchDay,TGT.lunch),t:hm(T.lunch/T.days)},
+  {g:'brk',h:'Days lunch over 1h',k:'Total',v:a=>a.overLunch,f:a=>a.overLunch,cf:a=>cfDays(a.overLunch),t:S2('overLunch')},
+  {g:'use',h:'Talk share',k:'Rate',v:a=>a.talkShare,f:a=>pct(a.talkShare),t:pct(T.talk/T.login)},
+  {g:'use',h:'Idle',k:'Total',v:a=>a.idle,f:a=>hm(a.idle),bar:1,t:hm(T.idle)},
+  {g:'use',h:'Not Ready',k:'Total',v:a=>a.notready,f:a=>hm(a.notready),bar:1,t:hm(T.notready)}];
+ const groups=[{key:'',label:''},{key:'att',label:'Attendance'},{key:'calls',label:'Calls'},{key:'brk',label:'Break & lunch'},{key:'use',label:'Time use'}];
+ const table=advTable($('#'+P+'-tblwrap'),{id:P+'-tbl',cols,groups,rows:A,st:tst,total:'Team',isSel:a=>a.id===st.sel});
+
+ // ---- individual ----
+ function drawInd(){const box=$('#'+P+'-ind');dropIn(box);const sel=st.sel;if(!sel){box.innerHTML='';return}
+  const a=byId[sel];const tile=(q,v,d)=>`<div class="it"><span class="q">${q}</span><span class="v">${v}</span><span class="d">${d}</span></div>`;
+  const VS=[['Calls handled per day',x=>x.hpd,v=>v.toFixed(1),1],['Talk time per day',x=>x.tpd,hm,1],['AHT',x=>x.aht,ms,1,TGT.aht,'2:00'],['Login per day',x=>x.avgLogin,hm,1,TGT.login,'7h 30m'],['Outbound connect rate',x=>x.oc,pct,1],['Inbound answer rate',x=>x.ia,pct,1],['Break per day',x=>x.brkDay,hm,0,TGT.brk,'30m'],['Idle share of login',x=>x.idle/x.login,pct,0]];
+  box.innerHTML=`<section class="card indiv"><div class="top"><span class="nm">${a.name}</span><span class="meta">${a.id} · ${a.days} days logged in${cfg.score?` · rank ${a.rank} of ${A.length}`:''}</span></div>
+  <div class="itiles">${[tile('Talk time (Total)',hm(a.talk),`${hm(a.tpd)}/day ${cmp(a.tpd,AVG('tpd'),1)}`),tile('AHT (Avg/call)',ms(a.aht),`target 2:00 ${tgt(a.aht>=TGT.aht)}`),
+   tile('Calls handled (Total)',n(a.handled),`${a.hpd.toFixed(1)}/day ${cmp(a.hpd,AVG('hpd'),1)}`),tile('Outbound / Inbound (Total)',`${n(a.outAns)} / ${n(a.inAns)}`,`connect ${pct(a.oc)} ${cmp(a.oc,teamOC,1)}`),
+   tile('Logged in (Avg/day)',hm(a.avgLogin),`target 7h 30m ${tgt(a.avgLogin>=TGT.login)} · ${a.lowLogin}d under`),tile('Break (Avg/day)',hm(a.brkDay),`limit 30m ${tgt(a.brkDay<=TGT.brk)} · ${a.overBrk}d over`),
+   tile('Lunch (Avg/day)',hm(a.lunchDay),`limit 1h ${tgt(a.lunchDay<=TGT.lunch)} · ${a.overLunch}d over`),tile('Idle hours (Total)',hrs(a.idle),`${pct(a.idle/a.login)} of login · Not Ready ${hrs(a.notready)}`)].join('')}</div>
+  <div class="vs"><h3>Where ${a.name} sits in the team <span class="kind">(highlighted dot; black tick = target)</span></h3>${VS.map(([l,f,fmt,hi,t,tl])=>`<div class="vsrow"><span>${l}</span>${strip(A,f,fmt,{target:t,targetLbl:tl,sel,higher:!!hi})}<span class="val">${fmt(f(a))}</span></div>`).join('')}</div>
+  <div class="three"><div><h3>Calls handled per day <span class="kind">(Daily)</span></h3><div class="chart" id="${P}-i-calls" style="height:220px"></div></div>
+  <div><h3>Logged-in hours per day <span class="kind">(Daily)</span></h3><div class="chart" id="${P}-i-login" style="height:220px"></div></div>
+  <div><h3>Break and lunch per day <span class="kind">(Daily)</span></h3><div class="chart" id="${P}-i-bl" style="height:220px"></div></div></div>
+  <p class="note">Green and red tags show whether ${a.name} met each target, or compare with the team average where there is no target.</p></section>`;
+  const small={grid:{left:4,right:8,top:30,bottom:4,containLabel:true}};
+  chart($('#'+P+'-i-calls'),()=>({...BASE(),...small,legend:LEG(['Out','In'],{itemWidth:8,itemHeight:8,textStyle:{fontSize:11,color:css('--fg2')}}),tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const i=ps[0].dataIndex;return `<b>${dlong(DATES[i])}</b><br>${dot(css('--out'))}Out ${n(a.dOut[i])}<br>${dot(css('--in'))}In ${n(a.dIn[i])}`}}),
+   xAxis:DAX(),yAxis:VAX(n,{min:0}),series:[{name:'Out',type:'bar',stack:'d',barWidth:'70%',data:a.dOut,itemStyle:{color:css('--out')}},{name:'In',type:'bar',stack:'d',data:a.dIn,itemStyle:{color:css('--in'),borderRadius:[2,2,0,0]},markLine:ML({data:[{yAxis:a.hpd}],lineStyle:{color:css('--fg2'),type:'dotted'},label:{formatter:'Avg '+a.hpd.toFixed(0),position:'insideEndTop',color:css('--fg2'),fontSize:10}})}]}));
+  chart($('#'+P+'-i-login'),()=>({...BASE(),...small,tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const i=ps[0].dataIndex,v=a.dLogin[i];return `<b>${dlong(DATES[i])}</b><br>${v?hm(v)+' logged in'+(v>43200?' (left logged in)':v<TGT.login?' · under target':''):'Not logged in'}`}}),
+   xAxis:DAX(),yAxis:VAX(v=>v/3600+'h',{min:0,max:Math.max(10*3600,Math.ceil(Math.max(...a.dLogin)/7200)*7200),interval:7200}),
+   series:[{type:'bar',barWidth:'70%',data:a.dLogin.map(v=>({value:v,itemStyle:{color:css(v>43200?'--warn':v<TGT.login?'--bad':'--good'),borderRadius:[2,2,0,0]}})),markLine:ML({data:[{yAxis:TGT.login}],lineStyle:{color:css('--fg'),width:1.5},label:{formatter:'7h 30m',position:'insideEndTop',color:css('--fg2'),fontSize:10}})}]}));
+  chart($('#'+P+'-i-bl'),()=>({...BASE(),...small,legend:LEG(['Break','Lunch'],{itemWidth:8,itemHeight:8,textStyle:{fontSize:11,color:css('--fg2')}}),tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const i=ps[0].dataIndex;return `<b>${dlong(DATES[i])}</b><br>${dot(css('--c-brk'))}Break ${hm(a.dBrk[i])}${a.dBrk[i]>TGT.brk?' · over 30m':''}<br>${dot(css('--c-lunch'))}Lunch ${hm(a.dLunch[i])}${a.dLunch[i]>TGT.lunch?' · over 1h':''}`}}),
+   xAxis:DAX(),yAxis:VAX(v=>v+'m',{min:0,max:Math.max(70,Math.ceil(Math.max(...a.dBrk,...a.dLunch)/600)*10)}),
+   series:[{name:'Break',type:'bar',barGap:'10%',barWidth:'35%',data:a.dBrk.map(v=>v/60),itemStyle:{color:css('--c-brk')},markLine:ML({data:[{yAxis:30}],lineStyle:{color:css('--c-brk'),type:'dashed',width:1.5},label:{formatter:'Break 30m',position:'insideEndTop',color:css('--fg2'),fontSize:10}})},
+    {name:'Lunch',type:'bar',barWidth:'35%',data:a.dLunch.map(v=>v/60),itemStyle:{color:css('--c-lunch')},markLine:ML({data:[{yAxis:60}],lineStyle:{color:css('--c-lunch'),type:'dashed',width:1.5},label:{formatter:'Lunch 1h',position:'insideEndTop',color:css('--fg2'),fontSize:10}})}]}));
+ }
+ function redrawId(id){const c=CH.find(c=>c.el.id===id);c&&drawChart(c)}
+ function applySel(){drawTargets();drawKpis();drawInd();CH.forEach(c=>{if(root.contains(c.el)&&!c.el.id.includes('-i-'))drawChart(c)});table.draw()}
+ const s=$('#'+P+'-sel');const r=recall(P+'-sel3');if(r&&ids.includes(r)){s.value=r;st.sel=r}
+ s.addEventListener('change',()=>{st.sel=s.value;remember(P+'-sel3',s.value);applySel()});
+ drawTargets();drawKpis();drawInd();table.draw();
+}
+
+// ---- tab: Customer Champion ----
+callTab($('#tab-cc'),CC_IDS,{p:'cc',score:true,
+ scope:'Showing 6 agents: Krishnaveni, Abdul, Rakesh, Mani, Madhi and Suganya. Rohit, Khizer and Sam are left out of this report, Catharine and Nasreen are on the Feedback Team tab, and extension Hue1006 has no assigned agent.'});
+
+// ---- tab: Feedback ----
+callTab($('#tab-fb'),FB_IDS,{p:'fb',score:false,
+ scope:'Feedback team: Catharine (Hue1005) and Nasreen (Hue1009). They call customers after delivery, so they are reported separately and not ranked against the Customer Champion team.',
+ extra:`<div class="card wide"><h2>Call outcome notes · Catharine <span class="kind">(Total)</span></h2><div class="chart" id="fb-disp"></div><p class="note" id="fb-disp-note"></p></div>`,
+ afterCharts:()=>{const c=byId['Hue1005'],nz=byId['Hue1009'];const D=Object.entries(c.disp).sort((x,y)=>y[1]-x[1]);const tot=sum(D.map(d=>d[1]));
+  $('#fb-disp-note').textContent=`Catharine tagged ${n(tot)} of ${n(c.calls_cdr)} calls (${pct(tot/c.calls_cdr)}). Nasreen did not tag any of her ${n(nz.calls_cdr)} calls, so her outcomes cannot be reported.`;
+  chart($('#fb-disp'),()=>{$('#fb-disp').style.height=(D.length*28+30)+'px';return{...BASE(),grid:{left:4,right:20,top:8,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const d=D[ps[0].dataIndex];return `<b>${d[0]}</b><br>${n(d[1])} calls · ${pct(d[1]/tot)} of tagged`}}),
+   xAxis:VAX(n,{min:0}),yAxis:[CAX(D.map(d=>d[0]),{axisLabel:{color:css('--fg'),fontSize:12,fontWeight:500}}),RAX(D.map(d=>`${n(d[1])} · ${Math.round(d[1]/tot*100)}%`))],
+   series:[{type:'bar',barWidth:14,data:D.map(d=>d[1]),itemStyle:{color:css('--c-lunch'),borderRadius:[0,4,4,0]}}]}})}});
+
+// ================= GO-AXEN TAB =================
+(function(){
+ const root=$('#tab-gx');
+ SALES_ALL.forEach(s=>{s.conv=s.gx+s.acc+s.completed;s.rate=s.total?s.conv/s.total:0;s.other=Math.max(s.total-s.conv-s.cancelled-s.fu,0);s.name=s.full;s.id=s.short});
+ const S=SALES_ALL.filter(s=>!s.excl),X=SALES_ALL.filter(s=>s.excl);
+ const nameToCall={Krishnaveni:'Hue1001',Abdul:'Hue1002',Rakesh:'Hue1003',Mani:'Hue1007',Madhi:'Hue1008',Suganya:'Hue1010'};
+ const GT=['total','conv','gx','acc','completed','cancelled','fu','other'].reduce((o,k)=>(o[k]=sum(S.map(s=>s[k])),o),{});
+ const teamRate=GT.conv/GT.total;const DEFAULT_T=0.18;let target=DEFAULT_T;const st={sel:''};
+ const op=s=>st.sel&&s.short!==st.sel?0.25:1;
+ root.innerHTML=selector('gx-sel',S.map(s=>({v:s.short,t:s.full})))+
+ `<p class="excl">Calculated for 6 agents: ${S.map(s=>s.full).join(', ')}. Left out: ${X.map(s=>s.full==='Lokesh'?'Sam (Lokesh)':s.full).join(', ')}.</p>
+ <section class="card"><div class="tgt"><label for="tgt-in"><span class="q">Go-Axen target</span></label><div class="tgt-ctl"><input id="tgt-in" type="number" min="1" max="100" step="0.1" inputmode="decimal" value="18"><span>%</span><button id="tgt-reset" class="btn" type="button">Reset to 18%</button></div></div>
+ <p class="note">The target is 18% for every agent. Type a different value to see what-if results; Reset brings it back to 18%.</p></section>
+ <div id="gx-ind"></div>
+ <section class="kpis" id="gx-kpis"></section>
+ <section class="grid2">
+  <div class="card"><h2>Go-Axen % against target <span class="kind">(Rate)</span></h2><div class="chart" id="gx-c-bul"></div><p class="note">Go-Axen % = (Go-Axen + Accepted Go-Axen + Completed bookings) ÷ Total leads. Grey band = target.</p></div>
+  <div class="card"><h2>Deficit % against target <span class="kind">(Rate)</span></h2><div class="chart" id="gx-c-def"></div><p class="note">Deficit % = (target − actual) ÷ target. Right column: deficit or surplus · conversions still needed.</p></div>
+  <div class="card"><h2>Lead volume vs Go-Axen % <span class="kind">(Total · Rate)</span></h2><div class="chart" id="gx-c-sc"></div><p class="note">Bubble size = conversions. Agents above the line are on target.</p></div>
+  <div class="card"><h2>What happened to each agent's leads <span class="kind">(Rate)</span></h2><div class="chart" id="gx-c-out"></div><p class="note">Share of total leads. Other = fresh, declined or duplicate leads.</p></div>
+ </section>
+ <section class="card"><h2>Go-Axen deficit by agent</h2><div class="cfkey"><span class="k" style="background:var(--goodbg);color:var(--good)">On target</span><span class="k" style="background:var(--warnbg);color:var(--warn)">Deficit under 10%</span><span class="k" style="background:var(--badbg);color:var(--bad)">Deficit 10% or more</span><span>The small bar in Go-Axen % shows progress to the target tick.</span></div><div id="gx-tblwrap"></div>
+ <p class="note">Source: Sales report, 30 Sep 2026. The team row covers the 6 agents above only.</p></section>`;
+ const tin=$('#tgt-in'),sel=$('#gx-sel');
+ const calc=()=>S.forEach(s=>{s.gap=s.rate-target;s.def=Math.max(target-s.rate,0)/target;s.rel=(s.rate-target)/target;s.short_=Math.max(Math.ceil(target*s.total-s.conv),0)});
+ calc();
+ function drawKpis(){const below=S.filter(s=>s.rate<target),short=sum(S.map(s=>s.short_)),teamDef=Math.max(target-teamRate,0)/target;const w=[...S].sort((a,b)=>a.rate-b.rate)[0],b=[...S].sort((a,b)=>b.rate-a.rate)[0];
+  const st_=strip(S,s=>s.rate,p2,{target,targetLbl:p2(target).replace('.00',''),sel:st.sel});
+  $('#gx-kpis').innerHTML=[['Total leads (Total)',n(GT.total),'6 agents',strip(S,s=>s.total,n,{sel:st.sel})],['Go-Axen conversions (Total)',n(GT.conv),`${GT.gx} Go-Axen · ${GT.acc} accepted · ${GT.completed} completed`,strip(S,s=>s.conv,n,{sel:st.sel})],
+   ['Team Go-Axen % (Rate)',p2(teamRate),`target ${p2(target)}`,st_],['Team deficit % (Rate)',teamRate>=target?'0.00%':p2(teamDef),teamRate>=target?'team is at or above target':`${n(Math.ceil(target*GT.total-GT.conv))} conversions short as a team`,''],
+   ['Agents below target',`${below.length} of ${S.length}`,below.map(s=>s.full).join(', ')||'none',''],['Leads needed (Total)',n(short),'sum of every agent’s shortfall',strip(S,s=>s.short_,n,{sel:st.sel})],
+   ['Highest Go-Axen %',b.full,p2(b.rate),''],['Lowest Go-Axen %',w.full,`${p2(w.rate)}${w.def>0?' · '+p2(w.def)+' deficit':''}`,'']]
+   .map(([q,v,d,viz])=>`<div class="kpi"><span class="q">${q}</span><span class="v">${v}</span><span class="d">${d}</span>${viz}</div>`).join('')}
+ chart($('#gx-c-bul'),()=>{const L=[...S].sort((a,b)=>b.rate-a.rate);$('#gx-c-bul').style.height=hRows(L.length)+'px';const mx=Math.max(target,...L.map(s=>s.rate))*100*1.1;
+  return{...BASE(),grid:{left:4,right:16,top:30,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const s=L[ps[0].dataIndex];return `<b>${s.full}</b><br>${n(s.conv)} of ${n(s.total)} leads = ${p2(s.rate)}<br>Go-Axen ${s.gx} · Accepted ${s.acc} · Completed ${s.completed}<br>Target ${p2(target)} · ${s.rate>=target?'on target':s.short_+' conversions short'}`}}),
+  xAxis:VAX(v=>v+'%',{min:0,max:Math.ceil(mx/5)*5,interval:5}),yAxis:[CAX(L.map(s=>s.full)),RAX(L.map(s=>p2(s.rate)))],
+  series:[{type:'bar',barWidth:22,silent:true,barGap:'-100%',z:1,data:L.map(()=>target*100),itemStyle:{color:css('--grid'),borderRadius:3}},
+   {type:'bar',barWidth:8,z:2,data:L.map(s=>({value:+(s.rate*100).toFixed(2),itemStyle:{color:css(s.rate>=target?'--good':'--bad'),opacity:op(s),borderRadius:[0,4,4,0]}})),markLine:ML({data:[{xAxis:target*100}],lineStyle:{color:css('--fg'),width:2,type:'solid'},label:{formatter:'Target '+p2(target).replace('.00',''),position:'start',color:css('--fg2'),fontSize:10.5}})}]}});
+ chart($('#gx-c-def'),()=>{const L=[...S].sort((a,b)=>a.rel-b.rel);$('#gx-c-def').style.height=hRows(L.length)+'px';const m=Math.max(...L.map(s=>Math.abs(s.rel)))*100*1.1;
+  return{...BASE(),grid:{left:4,right:16,top:12,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const s=L[ps[0].dataIndex];return `<b>${s.full}</b><br>${p2(s.rate)} vs target ${p2(target)}<br>${s.rel<0?`Deficit ${p2(-s.rel)} · ${s.short_} more conversions needed`:`Ahead by ${p2(s.rel)}`}`}}),
+  xAxis:VAX(v=>(v>0?'+':'')+v+'%',{min:-Math.ceil(m/10)*10,max:Math.ceil(m/10)*10,interval:10}),yAxis:[CAX(L.map(s=>s.full)),RAX(L.map(s=>s.rel<0?`−${p2(-s.rel)} · ${s.short_}`:`+${p2(s.rel)}`))],
+  series:[{type:'bar',barWidth:16,data:L.map(s=>({value:+(s.rel*100).toFixed(2),itemStyle:{color:css(s.rel<0?'--bad':'--good'),opacity:op(s),borderRadius:s.rel<0?[4,0,0,4]:[0,4,4,0]}})),markLine:ML({data:[{xAxis:0}],lineStyle:{color:css('--fg2'),width:1.5,type:'solid'},label:{show:false}})}]}});
+ chart($('#gx-c-sc'),()=>{const mx=Math.max(...S.map(s=>s.conv));$('#gx-c-sc').style.height='300px';
+  return{...BASE(),grid:{left:8,right:70,top:20,bottom:30,containLabel:true},tooltip:TT({trigger:'item',formatter:p=>{const s=S[p.dataIndex];return `<b>${s.full}</b><br>${n(s.total)} leads · ${n(s.conv)} converted<br>Go-Axen ${p2(s.rate)} (target ${p2(target)})`}}),
+  xAxis:VAX(n,{scale:true,name:'Total leads',nameLocation:'middle',nameGap:28,nameTextStyle:{color:css('--muted'),fontSize:11}}),yAxis:VAX(v=>v+'%',{min:v=>Math.floor(Math.min(v.min,target*100)-1),max:v=>Math.ceil(Math.max(v.max,target*100)+1)}),
+  series:[{type:'scatter',data:S.map(s=>({name:s.full,value:[s.total,+(s.rate*100).toFixed(2)],symbolSize:14+22*Math.sqrt(s.conv/mx),itemStyle:{color:rgba(css(s.rate>=target?'--good':'--bad'),.85),borderColor:css('--panel'),borderWidth:2,opacity:op(s)}})),
+   label:{show:true,position:'right',formatter:p=>p.name,color:css('--fg'),fontSize:11.5,fontWeight:600},labelLayout:{moveOverlap:'shiftY'},
+   markLine:ML({lineStyle:{color:css('--fg'),type:'dashed',width:1.5},label:{formatter:'Target '+p2(target).replace('.00',''),position:'insideEndTop',color:css('--fg2'),fontSize:10.5},data:[{yAxis:target*100}]})}]}});
+ const OUT=[['Converted','--out',s=>s.conv],['Follow-ups','--c-lunch',s=>s.fu],['Cancelled','--in',s=>s.cancelled],['Other','--c-other',s=>s.other]];
+ chart($('#gx-c-out'),()=>{const L=[...S].sort((a,b)=>b.rate-a.rate);$('#gx-c-out').style.height=hRows(L.length)+20+'px';
+  return{...BASE(),legend:LEG(OUT.map(o=>o[0])),grid:{left:4,right:16,top:36,bottom:4,containLabel:true},
+  tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const s=L[ps[0].dataIndex];return `<b>${s.full}</b> · ${n(s.total)} leads<br>`+OUT.map(o=>`${dot(css(o[1]))}${o[0]}: ${n(o[2](s))} (${pct(o[2](s)/s.total)})`).join('<br>')}}),
+  xAxis:VAX(v=>v+'%',{max:100,interval:20}),yAxis:CAX(L.map(s=>s.full)),
+  series:OUT.map((o,oi)=>({name:o[0],type:'bar',stack:'o',barWidth:20,itemStyle:{color:css(o[1]),borderColor:css('--panel'),borderWidth:1,borderRadius:oi===OUT.length-1?[0,4,4,0]:0},emphasis:{focus:'series'},
+   label:{show:oi<3,position:'inside',formatter:p=>p.value>=9?Math.round(p.value)+'%':'',color:'#fff',fontSize:10.5,fontFamily:css('--mono')},data:L.map(s=>({value:o[2](s)/s.total*100,itemStyle:{opacity:op(s)}}))}))}});
+ // table
+ const cfDef=s=>s.def===0?'ok':s.def<0.10?'warn':'bad';
+ const cols=[{h:'Agent',v:s=>s.full,f:s=>s.full},
+  {g:'leads',h:'Total leads',k:'Total',v:s=>s.total,f:s=>n(s.total),bar:1,t:n(GT.total)},{g:'leads',h:'Go-Axen',k:'Total',v:s=>s.gx,f:s=>s.gx,t:GT.gx},{g:'leads',h:'Accepted',k:'Total',v:s=>s.acc,f:s=>s.acc,t:GT.acc},{g:'leads',h:'Completed',k:'Total',v:s=>s.completed,f:s=>s.completed,t:GT.completed},
+  {g:'leads',h:'Conversions',k:'Total',v:s=>s.conv,f:s=>n(s.conv),bar:1,t:n(GT.conv)},{g:'leads',h:'Cancelled',k:'Total',v:s=>s.cancelled,f:s=>n(s.cancelled),t:n(GT.cancelled)},{g:'leads',h:'Follow-ups',k:'Total',v:s=>s.fu,f:s=>n(s.fu),t:n(GT.fu)},
+  {g:'tgt',h:'Go-Axen %',k:'Rate',v:s=>s.rate,f:s=>`<span class="cbul"><i><b style="width:${Math.min(s.rate/(target*1.25),1)*100}%;background:var(${s.rate>=target?'--good':'--bad'})"></b><u style="left:${80}%"></u></i>${p2(s.rate)}</span>`,t:p2(teamRate)},
+  {g:'tgt',h:'Gap',k:'vs target, pts',v:s=>s.gap,f:s=>`<span class="${s.gap<0?'v-bad':'v-good'}">${(s.gap>=0?'+':'−')+(Math.abs(s.gap)*100).toFixed(2)}</span>`,t:((teamRate-target)>=0?'+':'−')+(Math.abs(teamRate-target)*100).toFixed(2)},
+  {g:'tgt',h:'Deficit %',k:'Rate',v:s=>s.def,f:s=>s.def>0?p2(s.def):'On target',cf:cfDef,t:teamRate>=target?'–':p2((target-teamRate)/target)},
+  {g:'tgt',h:'Leads short',k:'Total',v:s=>s.short_,f:s=>s.short_||'–',cf:cfDef,t:n(sum(S.map(s=>s.short_)))},
+  {g:'conv',h:'Check-in conv.',k:'Rate',v:s=>parseFloat(s.checkin),f:s=>s.checkin,t:'–'},{g:'conv',h:'End-to-end conv.',k:'Rate',v:s=>parseFloat(s.e2e),f:s=>s.e2e,t:p2(GT.completed/GT.total)}];
+ const groups=[{key:'',label:''},{key:'leads',label:'Leads'},{key:'tgt',label:'Against target'},{key:'conv',label:'Conversion'}];
+ const tst={k:8,d:1,hide:{}};
+ let table=advTable($('#gx-tblwrap'),{id:'gx-tbl',cols,groups,rows:S,st:tst,total:'Team (6)',isSel:s=>s.short===st.sel});
+ function drawInd(){const box=$('#gx-ind');dropIn(box);const sv=st.sel;if(!sv){box.innerHTML='';return}
+  const s=S.find(x=>x.short===sv),rank=[...S].sort((a,b)=>b.rate-a.rate).indexOf(s)+1,c=byId[nameToCall[s.short]];
+  const tile=(q,v,d)=>`<div class="it"><span class="q">${q}</span><span class="v">${v}</span><span class="d">${d}</span></div>`;
+  box.innerHTML=`<section class="card indiv"><div class="top"><span class="nm">${s.full}</span><span class="meta">${c?c.id+' · ':''}rank ${rank} of ${S.length} on Go-Axen %</span></div>
+  <div class="itiles">${[tile('Go-Axen % (Rate)',p2(s.rate),`target ${p2(target)} ${tgt(s.rate>=target)}`),tile('Deficit % (Rate)',s.def>0?p2(s.def):'On target',s.def>0?`${(Math.abs(s.gap)*100).toFixed(2)} pts below target`:`${(s.gap*100).toFixed(2)} pts above target`),
+   tile('Leads short (Total)',s.short_||'0',s.short_?'more conversions to reach target':'target reached'),tile('Total leads (Total)',n(s.total),`${n(s.conv)} converted`),
+   tile('Cancelled (Total)',n(s.cancelled),`${pct(s.cancelled/s.total)} of leads ${cmp(s.cancelled/s.total,GT.cancelled/GT.total,0)}`),tile('Follow-ups open (Total)',n(s.fu),`${pct(s.fu/s.total)} of leads`),
+   tile('Calls handled (Total)',c?n(c.handled):'–',c?`${c.hpd.toFixed(1)} per day`:''),tile('Talk time (Total)',c?hm(c.talk):'–',c?`AHT ${ms(c.aht)}`:'')].join('')}</div>
+  <div class="grid2" style="gap:16px"><div><h3 style="font-size:13px;margin:0 0 4px">Lead outcomes</h3><div class="chart" id="gx-i-donut" style="height:240px"></div></div>
+  <div class="vs"><h3>Where ${s.full} sits in the team</h3>${[['Go-Axen %',x=>x.rate,p2,1,target,'Target'],['Total leads',x=>x.total,n,1],['Conversions',x=>x.conv,n,1],['Cancelled share',x=>x.cancelled/x.total,pct,0],['Follow-up share',x=>x.fu/x.total,pct,0]].map(([l,f,fmt,hi,t,tl])=>`<div class="vsrow"><span>${l}</span>${strip(S,f,fmt,{target:t,targetLbl:tl,sel:sv,higher:!!hi})}<span class="val">${fmt(f(s))}</span></div>`).join('')}</div></div></section>`;
+  chart($('#gx-i-donut'),()=>({...BASE(),tooltip:TT({trigger:'item',formatter:p=>`${p.name}: ${n(p.value)} (${p.percent}%)`}),legend:LEG(OUT.map(o=>o[0]),{orient:'vertical',left:'60%',top:'middle'}),
+   series:[{type:'pie',radius:['52%','78%'],center:['30%','52%'],avoidLabelOverlap:true,itemStyle:{borderColor:css('--panel'),borderWidth:2},label:{show:true,position:'center',formatter:()=>`${p2(s.rate)}\nGo-Axen`,fontSize:15,fontWeight:600,color:css('--fg'),lineHeight:20},labelLine:{show:false},emphasis:{label:{show:true}},
+    data:OUT.map(o=>({name:o[0],value:o[2](s),itemStyle:{color:css(o[1])}}))}]}));}
+ function redraw(){calc();drawKpis();CH.forEach(c=>{if(root.contains(c.el))drawChart(c)});table=advTable($('#gx-tblwrap'),{id:'gx-tbl',cols,groups,rows:S,st:tst,total:'Team (6)',isSel:s=>s.short===st.sel});drawInd()}
+ tin.addEventListener('input',()=>{const v=parseFloat(tin.value);if(v>0&&v<=100){target=v/100;redraw()}});
+ $('#tgt-reset').addEventListener('click',()=>{target=DEFAULT_T;tin.value='18';redraw()});
+ const r=recall('gx-sel3');if(r&&S.some(s=>s.short===r)){sel.value=r;st.sel=r}
+ sel.addEventListener('change',()=>{st.sel=sel.value;remember('gx-sel3',sel.value);redraw()});
+ drawKpis();drawInd();
+})();
+
+(()=>{const h=location.hash.slice(1);let s={daily:'tb-day',goaxen:'tb-gx',feedback:'tb-fb',champion:'tb-cc'}[h];if(!s){try{s=localStorage.getItem('hueTab4')}catch(e){}}showTab(s&&$('#'+s)?s:'tb-day')})();
+
+// ================= DAILY SNAPSHOTS TAB =================
+(function(){
+const root=$('#tab-day');
+const SLOTS=[['1330','1:30 PM'],['1630','4:30 PM'],['1830','6:30 PM']];
+const slotLbl=s=>(SLOTS.find(x=>x[0]===s)||[0,s])[1];
+const NAME=Object.fromEntries(RAW.agents.map(a=>[a.id,a.name]));
+const TEAM={cc:CC_IDS,fb:FB_IDS};
+const clk=s=>{if(s==null)return'–';s=Math.round(s);let h=Math.floor(s/3600),m=Math.floor(s%3600/60);const ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap}`};
+const istNow=()=>{const d=new Date(Date.now()+5.5*3600e3);return{date:d.toISOString().slice(0,10),mins:d.getUTCHours()*60+d.getUTCMinutes()}};
+const guessSlot=()=>{const m=istNow().mins;return m<15*60?'1330':m<17.5*60?'1630':'1830'};
+const longDate=d=>new Date(d+'T00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+const st={date:'',slot:'',team:'cc',files:[],pending:null,db:null,canWrite:null,uid:null,live:false};
+const SNAPS={};// id -> data
+let chartsMade=false;
+
+root.innerHTML=`
+<section class="card" id="up-card">
+ <div class="chead"><h2>Upload today's call reports</h2><span class="note" id="up-who"></span></div>
+ <p class="note">Upload at 1:30 PM, 4:30 PM and 6:30 PM. Export the reports for today only and drop them all here together. The <b>Production report</b> is required; the Login report adds login and logoff times, the Missed Calls report adds missed calls, and the call log (CDR) adds the hour-by-hour chart.</p>
+ <label class="drop" id="drop" for="up-in"><input type="file" id="up-in" multiple accept=".csv,text/csv"><span><b>Choose files</b> or drag the CSV exports here</span></label>
+ <div id="up-list"></div>
+ <div class="up-row"><label class="fld" for="up-date">Date<input type="date" id="up-date"></label>
+  <div class="fld"><span>Upload time</span>${seg('up-slot',SLOTS,guessSlot())}</div>
+  <div class="up-act"><button type="button" class="btn pri" id="up-save" disabled>Save snapshot</button></div></div>
+ <p class="note" id="up-msg" role="status"></p>
+</section>
+<div class="toolbar day-bar">
+ <label for="d-date">Date<select id="d-date"></select></label>
+ <div class="fld"><span>Time</span><div class="seg" role="group" id="d-slot"></div></div>
+ <label for="d-team">Team<select id="d-team"><option value="cc">Customer Champion (6)</option><option value="fb">Feedback team (2)</option><option value="all">All agents</option></select></label>
+</div>
+<div id="d-empty" class="card empty" hidden></div>
+<div id="d-body" hidden>
+ <p class="excl" id="d-meta"></p>
+ <section class="kpis" id="d-kpis"></section>
+ <section class="grid2">
+  <div class="card wide"><h2>Progress through the day <span class="kind">(Calls handled at each upload)</span></h2><div class="chart" id="d-c-prog"></div><p class="note">Each bar is the running total at that upload time. Missing bars mean that upload hasn't been made yet.</p></div>
+  <div class="card"><h2>Talk time and AHT <span class="kind">(So far today)</span></h2><div class="chart" id="d-c-talk"></div><p class="note">Bar = talk time so far. Right column: AHT, green when at least the 2:00 target.</p></div>
+  <div class="card"><h2>Calls per hour <span class="kind">(Team, from the call log)</span></h2><div class="chart" id="d-c-hour"></div><p class="note" id="d-hour-note">Connected calls in each hour of the day.</p></div>
+  <div class="card wide"><h2>Where the logged-in time went <span class="kind">(So far today)</span></h2><div class="chart" id="d-c-split"></div><p class="note">Idle = Ready with no call connected. Not Ready = logged in but switched off from calls.</p></div>
+ </section>
+ <section class="card"><h2>Agent scorecard <span class="kind" id="d-tbl-kind"></span></h2>
+  <div class="cfkey"><span class="k" style="background:var(--goodbg);color:var(--good)">Meets target</span><span class="k" style="background:var(--badbg);color:var(--bad)">Misses target</span><span>AHT 2:00 minimum · break 30m and lunch 1h maximum · login 7h 30m is checked on the 6:30 PM upload only. "+ since" = calls handled since the previous upload.</span></div>
+  <div id="d-tbl"></div>
+  <div class="snap-act" id="d-act"></div>
+ </section>
+</div>`;
+
+// ---------- upload ----------
+const upIn=$('#up-in'),drop=$('#drop'),upDate=$('#up-date');let upSlot=guessSlot();
+upDate.value=istNow().date;
+bindSeg('up-slot',v=>{upSlot=v;refreshSave()});
+upIn.addEventListener('change',()=>takeFiles([...upIn.files]));
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',ev=>takeFiles([...ev.dataTransfer.files].filter(f=>/\.csv$/i.test(f.name))));
+async function takeFiles(list){
+ if(!list.length)return;$('#up-msg').textContent='Reading files…';
+ const files=await Promise.all(list.map(async f=>({name:f.name,text:await f.text()})));
+ const snap=CallParse.buildSnapshot(files);st.pending=snap;
+ const rows=snap.files.map(f=>`<li class="${f.kind?'ok':'no'}"><b>${f.kind?CallParse.LABEL[f.kind]:'Not recognised'}</b> <span>${esc(f.name)}</span>${f.kind?` · ${n(f.rows)} agent rows`:''}</li>`).join('');
+ const hasProd=snap.files.some(f=>f.kind==='production');
+ $('#up-list').innerHTML=`<ul class="flist">${rows}</ul>`;
+ if(snap.dates.length){upDate.value=snap.dates[snap.dates.length-1]}
+ let msg=hasProd?`Ready to save ${Object.keys(snap.agents).length} agents.`:'Add the Production report. It carries calls, talk time, breaks and login hours.';
+ if(snap.dates.length>1)msg+=` These files cover ${dl(snap.dates[0])} – ${dl(snap.dates[snap.dates.length-1])}; daily uploads should cover one day only.`;
+ $('#up-msg').textContent=msg;refreshSave();
+}
+function refreshSave(){const ok=st.pending&&st.pending.files.some(f=>f.kind==='production')&&upDate.value;
+ const b=$('#up-save');b.disabled=!ok;const id=`${upDate.value}_${upSlot}`;
+ b.textContent=SNAPS[id]&&!SNAPS[id].local?`Replace ${slotLbl(upSlot)} snapshot`:'Save snapshot'}
+upDate.addEventListener('change',refreshSave);
+$('#up-save').addEventListener('click',async()=>{
+ const id=`${upDate.value}_${upSlot}`;const b=$('#up-save');
+ if(SNAPS[id]&&!SNAPS[id].local&&b.dataset.confirm!==id){b.dataset.confirm=id;b.textContent='Click again to replace';$('#up-msg').textContent=`A ${slotLbl(upSlot)} snapshot already exists for ${longDate(upDate.value)}. Click again to replace it.`;return}
+ b.dataset.confirm='';const s=st.pending;
+ const body={date:upDate.value,slot:upSlot,savedAt:new Date().toISOString(),savedBy:st.uid||'',files:s.files,hasCdr:s.hasCdr,agents:s.agents};
+ if(!st.db){SNAPS[id]={...body,local:true};$('#up-msg').textContent=`Showing ${slotLbl(upSlot)} for ${longDate(upDate.value)} as a preview. It is not saved, because saving only works when the dashboard is opened in Claude.`;afterSave(id);return}
+ b.disabled=true;$('#up-msg').textContent='Saving…';
+ try{await st.db.doc('snapshots/'+id).set(body);SNAPS[id]=body;$('#up-msg').textContent=`Saved: ${slotLbl(upSlot)} snapshot for ${longDate(upDate.value)}. Everyone with the link now sees it.`;afterSave(id)}
+ catch(e){b.disabled=false;$('#up-msg').textContent=e&&e.code==='bad_key'?'The upload key is missing or wrong. Enter the upload key set on Render and try again.':e&&e.code==='invalid_argument'?'You can view this dashboard but not save to it. Ask the owner for edit access.':e&&e.code==='quota_exceeded'?'The dashboard storage is full. Delete some old snapshots and try again.':'Could not save just now. Try again in a moment.'}
+});
+function afterSave(id){st.pending=null;upIn.value='';$('#up-list').innerHTML='';const [d,s]=id.split('_');st.date=d;st.slot=s;renderPickers();renderAll();refreshSave()}
+
+// ---------- pickers ----------
+const dates=()=>[...new Set(Object.values(SNAPS).map(x=>x.date))].sort().reverse();
+function renderPickers(){
+ const ds=dates();const sel=$('#d-date');
+ if(!ds.includes(st.date))st.date=ds[0]||'';
+ sel.innerHTML=ds.length?ds.map(d=>`<option value="${d}">${longDate(d)}</option>`).join(''):'<option value="">No uploads yet</option>';sel.value=st.date;
+ const have=SLOTS.filter(([s])=>SNAPS[`${st.date}_${s}`]).map(x=>x[0]);
+ if(!have.includes(st.slot))st.slot=have[have.length-1]||'';
+ $('#d-slot').innerHTML=SLOTS.map(([s,l])=>`<button type="button" data-v="${s}" aria-pressed="${s===st.slot}" ${have.includes(s)?'':'disabled'}>${l}${have.includes(s)?'':' · not yet'}</button>`).join('');
+}
+$('#d-date').addEventListener('change',e=>{st.date=e.target.value;st.slot='';renderPickers();renderAll()});
+$('#d-slot').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;st.slot=b.dataset.v;renderPickers();renderAll()});
+$('#d-team').addEventListener('change',e=>{st.team=e.target.value;remember('dayTeam',st.team);renderAll()});
+const rt=recall('dayTeam');if(rt){st.team=rt;$('#d-team').value=rt}
+
+// ---------- derived data ----------
+function rowsFor(snap){
+ const ids=st.team==='all'?Object.keys(snap.agents).sort((a,b)=>(NAME[a]||a).localeCompare(NAME[b]||b)):TEAM[st.team].filter(id=>snap.agents[id]);
+ return ids.map(id=>{const a=snap.agents[id];const talk=a.talkIn+a.talkOut,handled=a.inAns+a.outAns;
+  return{id,name:NAME[id]||id,...a,talk,handled,calls:a.inTot+a.outTot,aht:handled?talk/handled:0,idle:Math.max(a.ready-talk,0),oc:a.outTot?a.outAns/a.outTot:0,ia:a.inTot?a.inAns/a.inTot:0}});
+}
+const cur=()=>SNAPS[`${st.date}_${st.slot}`];
+function prevSnap(){const i=SLOTS.findIndex(x=>x[0]===st.slot);for(let j=i-1;j>=0;j--){const p=SNAPS[`${st.date}_${SLOTS[j][0]}`];if(p)return{snap:p,slot:SLOTS[j][0]}}return null}
+
+// ---------- render ----------
+let tableSt={k:1,d:1,hide:{}};
+function renderAll(){
+ const snap=cur();const body=$('#d-body'),empty=$('#d-empty');
+ if(!snap){body.hidden=true;empty.hidden=false;
+  empty.innerHTML=st.live||!window.claude?`<h2>No uploads yet</h2><p class="note">Upload today's reports above at 1:30 PM, 4:30 PM or 6:30 PM. Each upload becomes a snapshot you can come back to from the Date and Time pickers.</p>`:`<p class="note">Loading saved snapshots…</p>`;return}
+ empty.hidden=true;body.hidden=false;
+ const R=rowsFor(snap);const S=k=>sum(R.map(r=>r[k]));const T={};['talk','handled','calls','login','brk','lunch','missed','idle','notready','outAns','inAns','outTot','inTot','talkIn','talkOut','ready','meet'].forEach(k=>T[k]=S(k));
+ const p=prevSnap();const pr=p?Object.fromEntries(rowsFor(p.snap).map(r=>[r.id,r])):null;
+ const kinds=snap.files.filter(f=>f.kind).map(f=>CallParse.LABEL[f.kind]);
+ $('#d-meta').textContent=`${longDate(snap.date)} · ${slotLbl(snap.slot)} upload · ${R.length} agents · from ${kinds.join(', ')}${snap.local?' · preview, not saved':''}`;
+ const late=snap.slot==='1830';
+ const K=[['Calls handled',n(T.handled),p?`+${n(T.handled-sum(Object.values(pr).map(r=>r.handled)))} since ${slotLbl(p.slot)}`:`of ${n(T.calls)} attempted`],
+  ['Talk time',hm(T.talk),`${hm(T.talkOut)} out · ${hm(T.talkIn)} in`],
+  ['AHT (Avg/call)',ms(T.handled?T.talk/T.handled:0),`target 2:00 · ${R.filter(r=>r.aht>=TGT.aht).length} of ${R.length} meet it`],
+  ['Outbound / Inbound',`${n(T.outAns)} / ${n(T.inAns)}`,`connect ${pct(T.outTot?T.outAns/T.outTot:0)} · answer ${pct(T.inTot?T.inAns/T.inTot:0)}`],
+  ['Logged in (Avg/agent)',hm(R.length?T.login/R.length:0),late?`${R.filter(r=>r.login>=TGT.login).length} of ${R.length} reached 7h 30m`:'login target is checked at 6:30 PM'],
+  ['Break + lunch (Avg/agent)',hm(R.length?(T.brk+T.lunch)/R.length:0),`${R.filter(r=>r.brk>TGT.brk||r.lunch>TGT.lunch).length} agents over a limit`],
+  ['Missed calls',n(T.missed),snap.files.some(f=>f.kind==='missed')?'inbound calls that rang an agent':'Missed Calls report not uploaded'],
+  ['Idle (Total)',hm(T.idle),`plus ${hm(T.notready)} Not Ready`]];
+ $('#d-kpis').innerHTML=K.map(([q,v,d])=>`<div class="kpi"><span class="q">${q}</span><span class="v">${v}</span><span class="d">${d}</span></div>`).join('');
+ // table
+ const cfMin=(v,t)=>v>=t?'ok':'bad',cfMax=(v,t)=>v<=t?'ok':'bad';
+ const hasLogin=snap.files.some(f=>f.kind==='login');
+ const cols=[{h:'Agent',v:r=>r.name,f:r=>r.name},
+  ...(hasLogin?[{g:'att',h:'First login',k:'Time',v:r=>r.firstLogin??1e9,f:r=>clk(r.firstLogin)},{g:'att',h:'Logoff',k:'Time',v:r=>r.lastLogout??0,f:r=>late?clk(r.lastLogout):'–'}]:[]),
+  {g:'att',h:'Logged in',k:'Total',v:r=>r.login,f:r=>hm(r.login),cf:late?r=>cfMin(r.login,TGT.login):null,t:hm(T.login)},
+  {g:'calls',h:'Handled',k:'Total',v:r=>r.handled,f:r=>n(r.handled),bar:1,t:n(T.handled)},
+  ...(pr?[{g:'calls',h:'+ since '+slotLbl(p.slot),k:'Calls',v:r=>r.handled-(pr[r.id]?.handled||0),f:r=>'+'+n(r.handled-(pr[r.id]?.handled||0)),t:'+'+n(T.handled-sum(R.map(r=>pr[r.id]?.handled||0)))}]:[]),
+  {g:'calls',h:'Talk time',k:'Total',v:r=>r.talk,f:r=>hm(r.talk),bar:1,t:hm(T.talk)},
+  {g:'calls',h:'AHT',k:'Avg/call',v:r=>r.aht,f:r=>ms(r.aht),cf:r=>cfMin(r.aht,TGT.aht),t:ms(T.handled?T.talk/T.handled:0)},
+  {g:'io',h:'Out dialled',k:'Total',v:r=>r.outTot,f:r=>n(r.outTot),t:n(T.outTot)},
+  {g:'io',h:'Out connected',k:'Total',v:r=>r.outAns,f:r=>n(r.outAns),t:n(T.outAns)},
+  {g:'io',h:'Connect %',k:'Rate',v:r=>r.oc,f:r=>pct(r.oc),t:pct(T.outTot?T.outAns/T.outTot:0)},
+  {g:'io',h:'In received',k:'Total',v:r=>r.inTot,f:r=>n(r.inTot),t:n(T.inTot)},
+  {g:'io',h:'In answered',k:'Total',v:r=>r.inAns,f:r=>n(r.inAns),t:n(T.inAns)},
+  {g:'io',h:'Missed',k:'Total',v:r=>r.missed,f:r=>n(r.missed),t:n(T.missed)},
+  {g:'brk',h:'Break',k:'Total',v:r=>r.brk,f:r=>hm(r.brk),cf:r=>cfMax(r.brk,TGT.brk),t:hm(T.brk)},
+  {g:'brk',h:'Lunch',k:'Total',v:r=>r.lunch,f:r=>hm(r.lunch),cf:r=>cfMax(r.lunch,TGT.lunch),t:hm(T.lunch)},
+  {g:'brk',h:'Meeting',k:'Total',v:r=>r.meet+r.query,f:r=>hm(r.meet+r.query),t:hm(T.meet+S('query'))},
+  {g:'use',h:'Idle',k:'Total',v:r=>r.idle,f:r=>hm(r.idle),bar:1,t:hm(T.idle)},
+  {g:'use',h:'Not Ready',k:'Total',v:r=>r.notready,f:r=>hm(r.notready),bar:1,t:hm(T.notready)}];
+ const groups=[{key:'',label:''},{key:'att',label:'Attendance'},{key:'calls',label:'Calls'},{key:'io',label:'Outbound & inbound'},{key:'brk',label:'Break & lunch'},{key:'use',label:'Time use'}];
+ if(tableSt.k>=cols.length)tableSt.k=1;
+ $('#d-tbl-kind').textContent=`(${slotLbl(snap.slot)} · so far today)`;
+ advTable($('#d-tbl'),{id:'d-tbl-t',cols,groups,rows:R,st:tableSt,total:'Team'});
+ const canDel=st.db&&st.canWrite!==false;
+ $('#d-act').innerHTML=snap.local?'':(canDel?`<button type="button" class="btn ghost" id="d-del">Delete this snapshot</button>`:'');
+ const del=$('#d-del');if(del)del.addEventListener('click',async()=>{
+  if(del.dataset.c!=='1'){del.dataset.c='1';del.textContent=`Click again to delete the ${slotLbl(snap.slot)} snapshot for ${longDate(snap.date)}`;return}
+  try{await st.db.doc(`snapshots/${snap.date}_${snap.slot}`).delete();delete SNAPS[`${snap.date}_${snap.slot}`];toast('Snapshot deleted');renderPickers();renderAll()}catch(e){toast('Could not delete. You may not have edit access.')}});
+ if(!chartsMade){makeCharts();chartsMade=true}else CH.forEach(c=>{if(root.contains(c.el))drawChart(c)});
+}
+
+function makeCharts(){
+ chart($('#d-c-prog'),()=>{const snap=cur();const R=rowsFor(snap);$('#d-c-prog').style.height=Math.max(180,R.length*44+70)+'px';
+  const cols=['--s1','--s2','--s3'];
+  return{...BASE(),legend:LEG(SLOTS.map(s=>s[1])),grid:{left:4,right:30,top:34,bottom:4,containLabel:true},
+   tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const r=R[ps[0].dataIndex];return `<b>${r.name}</b><br>`+SLOTS.map(([s,l])=>{const x=SNAPS[`${st.date}_${s}`];const a=x&&x.agents[r.id];return `${l}: ${a?n(a.inAns+a.outAns)+' handled':'not uploaded'}`}).join('<br>')}}),
+   xAxis:VAX(n,{min:0}),yAxis:CAX(R.map(r=>r.name)),
+   series:SLOTS.map(([s,l],i)=>({name:l,type:'bar',barWidth:9,barGap:'25%',itemStyle:{color:css(cols[i]),borderRadius:[0,3,3,0]},
+    label:{show:s===st.slot,position:'right',color:css('--fg'),fontFamily:css('--mono'),fontSize:10.5,formatter:p=>p.value?n(p.value):''},
+    data:R.map(r=>{const x=SNAPS[`${st.date}_${s}`];const a=x&&x.agents[r.id];return a?a.inAns+a.outAns:null})}))}});
+ chart($('#d-c-talk'),()=>{const R=[...rowsFor(cur())].sort((a,b)=>b.talk-a.talk);$('#d-c-talk').style.height=hRows(R.length)+'px';
+  return{...BASE(),grid:{left:4,right:16,top:10,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'none'},formatter:ps=>{const r=R[ps[0].dataIndex];return `<b>${r.name}</b><br>Talk ${hm(r.talk)} (${hm(r.talkOut)} out · ${hm(r.talkIn)} in)<br>AHT ${ms(r.aht)} over ${n(r.handled)} calls`}}),
+   xAxis:VAX(v=>{const t=Math.round(v/60);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')},(()=>{const mx=Math.max(...R.map(r=>r.talk),1),iv=mx>4*3600?3600:1800;return{min:0,interval:iv,max:Math.ceil(mx*1.05/iv)*iv}})()),yAxis:[CAX(R.map(r=>r.name)),RAX(R.map(r=>`${hm(r.talk)} · ${ms(r.aht)}`))],
+   series:[{type:'bar',barWidth:14,data:R.map(r=>({value:r.talk,itemStyle:{color:css(r.aht>=TGT.aht?'--good':'--c-talk'),borderRadius:[0,4,4,0]}}))}]}});
+ chart($('#d-c-hour'),()=>{const snap=cur();const R=rowsFor(snap);const H=new Array(24).fill(0);let any=false;R.forEach(r=>{if(r.hourly){any=true;r.hourly.forEach((v,i)=>H[i]+=v)}});
+  $('#d-c-hour').style.height='240px';$('#d-hour-note').textContent=any?'Connected calls in each hour of the day, for the selected team.':'Upload the call log (CDR) with this snapshot to see calls per hour.';
+  const hrs_=[];for(let h=8;h<=21;h++)hrs_.push(h);const lab=h=>(h%12||12)+(h<12?'a':'p');
+  if(!any){$('#d-c-hour').style.height='120px';return{...BASE(),graphic:[{type:'text',left:'center',top:'middle',style:{text:'No call log in this upload',fill:css('--muted'),fontSize:13,fontFamily:css('--display')}}]}}
+  return{...BASE(),grid:{left:4,right:12,top:16,bottom:4,containLabel:true},tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>`<b>${lab(hrs_[ps[0].dataIndex])}–${lab(hrs_[ps[0].dataIndex]+1)}</b><br>${n(ps[0].value)} connected calls`}),
+   xAxis:{type:'category',data:hrs_.map(lab),axisLine:{lineStyle:{color:css('--line')}},axisTick:{show:false},axisLabel:{color:css('--muted'),fontFamily:css('--mono'),fontSize:10.5}},yAxis:VAX(n,{min:0}),
+   series:[{type:'bar',barWidth:'60%',data:hrs_.map(h=>H[h]),itemStyle:{color:css('--out'),borderRadius:[3,3,0,0]}}]}});
+ const SEG=[['Talk','--c-talk',r=>r.talk],['Idle','--c-idle',r=>r.idle],['Not Ready','--c-nr',r=>r.notready],['Lunch','--c-lunch',r=>r.lunch],['Break','--c-brk',r=>r.brk],['Meeting / query','--c-meet',r=>r.meet+r.query]];
+ chart($('#d-c-split'),()=>{const R=rowsFor(cur()).filter(r=>sum(SEG.map(s=>s[2](r)))>0);const tot=r=>sum(SEG.map(s=>s[2](r)));R.sort((a,b)=>b.talk/tot(b)-a.talk/tot(a));$('#d-c-split').style.height=hRows(R.length)+20+'px';
+  return{...BASE(),legend:LEG(SEG.map(s=>s[0])),grid:{left:4,right:16,top:36,bottom:4,containLabel:true},
+   tooltip:TT({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:rgba(css('--fg'),.05)}},formatter:ps=>{const r=R[ps[0].dataIndex];return `<b>${r.name}</b> · logged in ${hm(r.login)}<br>`+SEG.map(s=>`${dot(css(s[1]))}${s[0]}: <b>${hm(s[2](r))}</b> · ${pct(s[2](r)/tot(r))}`).join('<br>')}}),
+   xAxis:VAX(v=>v+'%',{max:100,interval:20}),yAxis:CAX(R.map(r=>r.name)),
+   series:SEG.map((s,si)=>({name:s[0],type:'bar',stack:'t',barWidth:20,itemStyle:{color:css(s[1]),borderColor:css('--panel'),borderWidth:1},
+    label:{show:si<3,position:'inside',formatter:p=>p.value>=9?Math.round(p.value)+'%':'',color:si===2?css('--fg'):'#fff',fontSize:10.5,fontFamily:css('--mono')},
+    data:R.map(r=>s[2](r)/tot(r)*100)}))}});
+}
+
+// ---------- connect to saved snapshots ----------
+renderPickers();renderAll();
+(async()=>{
+ if(window.SERVER_MODE){
+  st.live=true;const getKey=()=>{try{return localStorage.getItem('cpUploadKey')||''}catch(e){return''}};
+  const row=root.querySelector('.up-row');const kl=document.createElement('label');kl.className='fld';kl.htmlFor='up-key';
+  kl.innerHTML='Upload key<input type="password" id="up-key" autocomplete="current-password" placeholder="Needed to save">';row.insertBefore(kl,row.querySelector('.up-act'));
+  const ki=$('#up-key');ki.value=getKey();ki.addEventListener('change',()=>{try{localStorage.setItem('cpUploadKey',ki.value.trim())}catch(e){}});
+  $('#up-who').textContent='Only people with the upload key can save; everyone with the link can view.';
+  const call=async(method,id,body)=>{const r=await fetch('/api/snapshots'+(id?'/'+encodeURIComponent(id):''),{method,headers:{'content-type':'application/json','x-upload-key':ki.value.trim()||getKey()},body:body?JSON.stringify(body):undefined});
+   if(!r.ok)throw{code:r.status===401||r.status===403?'bad_key':r.status===413?'invalid_argument':'unavailable'};return method==='GET'?r.json():null};
+  st.db={doc:p=>{const id=p.split('/')[1];return{set:b=>call('PUT',id,b),delete:()=>call('DELETE',id)}}};
+  const load=async()=>{try{const list=await call('GET');for(const k in SNAPS)if(!SNAPS[k].local)delete SNAPS[k];list.forEach(v=>{if(v&&v.date&&v.slot)SNAPS[`${v.date}_${v.slot}`]=v});renderPickers();renderAll();refreshSave()}
+   catch(e){$('#d-empty').hidden=false;$('#d-empty').innerHTML='<p class="note">Saved snapshots could not be loaded. The server may be waking up; reload the page in a minute.</p>'}};
+  await load();setInterval(()=>{if(document.visibilityState==='visible'&&!st.pending)load()},120000);return}
+ const cl=window.claude;if(!cl||!cl.use){st.live=true;$('#up-who').textContent='Preview mode: uploads show here but are not saved.';renderAll();return}
+ const [db,user]=await Promise.all([cl.use('db'),cl.use('user')]);
+ st.db=db;st.live=true;
+ if(user){try{st.uid=await user.id()}catch(e){}try{st.canWrite=await user.can('data.write')}catch(e){}}
+ if(st.canWrite===false){$('#up-card').hidden=true}
+ if(!db){$('#up-who').textContent='Saving is not available in this view; uploads show as a preview only.';renderAll();return}
+ db.collection('snapshots').onSnapshot(qs=>{
+  for(const k in SNAPS)if(!SNAPS[k].local)delete SNAPS[k];
+  qs.docs.forEach(d=>{const v=d.data();if(v&&v.date&&v.slot)SNAPS[d.id]=v});
+  const keepDate=st.date,keepSlot=st.slot;renderPickers();
+  if(st.date!==keepDate||st.slot!==keepSlot||!chartsMade||$('#d-body').hidden)renderAll();else renderAll();refreshSave();
+ },e=>{$('#up-msg').textContent='Saved snapshots could not be loaded. Reload the page to try again.'});
+})();
+})();
+
+</script>
+
+</body></html>
