@@ -33,7 +33,7 @@
   --seq0:#1f2731; --seq1:#6aa8f0; --barfill:#2a3f5c; --selbg:#1f2a38; --s1:#2c4a70; --s2:#3f7bc4; --s3:#8bbcf5; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--display);font-size:14px;line-height:1.45}
-.wrap{max-width:1280px;margin:0 auto;padding-inline:16px;padding-block:24px 56px;display:flex;flex-direction:column;gap:20px}
+.wrap{max-width:1440px;margin:0 auto;padding-inline:16px;padding-block:24px 56px;display:flex;flex-direction:column;gap:20px}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
 h1{font-size:26px;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
 .sub{color:var(--fg2);margin:4px 0 0}
@@ -181,6 +181,12 @@ td svg.sp{display:block;width:90px;height:22px;margin-left:auto}
 .empty h2{font-size:15px;margin:0}
 .card[hidden],#d-body[hidden],#up-card[hidden]{display:none}
 .snap-act{display:flex;justify-content:flex-end}
+#d-tbl .tw{max-height:none}
+#d-tbl table{font-size:12px}
+#d-tbl th,#d-tbl td{padding:8px 6px}
+#d-tbl thead tr.h th{white-space:normal;line-height:1.25;letter-spacing:.03em;font-size:10.5px}
+#d-tbl thead tr.g th{padding:6px 7px}
+#d-tbl td.bar{background-size:calc((100% - 14px) * var(--w)) 3px;background-position:7px calc(100% - 4px)}
 @media (max-width:900px){.up-act{margin-left:0}.kpi .v{font-size:20px}.tgc .v{font-size:16px}.grid2,.pw,.three{grid-template-columns:1fr}.targets,.kpis,.itiles{grid-template-columns:repeat(2,minmax(0,1fr))}.vsrow{grid-template-columns:120px minmax(0,1fr) 92px}select{min-width:0;width:100%}.toolbar label{flex:1}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
