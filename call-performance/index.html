@@ -251,7 +251,7 @@ const dpart=dt=>{const m=String(dt).match(/(\d{4}-\d{2}-\d{2})/);return m?m[1]:n
 
 // files: [{name, text}] -> {agents:{id:{...}}, files:[...], dates:[...], hasCdr}
 function buildSnapshot(files){
-  const A={};const info=[];const dates=new Set();
+  const A={};const info=[];const dates=new Set();const rptBL={};
   const ag=id=>A[id]||(A[id]={login:0,ready:0,notready:0,brk:0,lunch:0,meet:0,query:0,inTot:0,inAns:0,outTot:0,outAns:0,talkIn:0,talkOut:0,missed:0,firstLogin:null,lastLogout:null,hourly:null,ext:''});
   const isAgent=n=>/^Hue\d+$/i.test(String(n).trim());
   const parsed=files.map(f=>{const rows=parseCSV(f.text);return{f,rows,kind:detect(rows)}});
@@ -273,9 +273,12 @@ function buildSnapshot(files){
     else if(kind==='cdr'){for(const o of objs){const id=o['MemberName'];if(!isAgent(id))continue;used++;const a=ag(id);
       if(!a.hourly)a.hourly=new Array(24).fill(0);const d=o['CallDisposition']||'';const t=tod(o['CallDateTime']);const dd=dpart(o['CallDateTime']);if(dd)dates.add(dd);
       if(t!=null&&/ANSWERED|TRANSFER/i.test(d))a.hourly[Math.floor(t/3600)]++}}
-    else if(kind==='breaks'){for(const o of objs){if(isAgent(o['Member Name']))used++}}
+    else if(kind==='breaks'){for(const o of objs){const id=o['Member Name'];if(!isAgent(id))continue;used++;
+      rptBL[id]={brk:hms(o['Break Time']),lunch:hms(o['Lunch Time'])}}}
     info.push({name:f.name,kind,rows:used});
   }
+  // Break and lunch come from the Break report when it is uploaded; otherwise the Production report's columns stand.
+  for(const [id,bl] of Object.entries(rptBL)){const a=ag(id);a.brk=bl.brk;a.lunch=bl.lunch}
   const ds=[...dates].sort();
   return{agents:A,files:info,dates:ds,hasCdr:Object.values(A).some(a=>a.hourly)};
 }
